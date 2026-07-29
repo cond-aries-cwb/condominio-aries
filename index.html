@@ -270,10 +270,10 @@
 
     <!-- RECEBER PAGAMENTO -->
     <section class="view" id="view-pagamento">
-      <div class="view-title"><h2>Receber Pagamento</h2><p>Marque o pagamento da taxa condominial por unidade, na competência atual.</p></div>
+      <div class="view-title"><h2>Receber Pagamento</h2><p>Marque o pagamento da taxa condominial por unidade, na competência atual. Lembretes ficam disponíveis a partir do dia 1 do mês da competência.</p></div>
       <div class="card">
         <table class="ledger" id="pagamento-table">
-          <thead><tr><th>Apto</th><th>Morador</th><th class="num">Valor</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Apto</th><th>Morador</th><th class="num">Valor esperado</th><th>Status</th><th></th><th></th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -329,6 +329,27 @@
         </div>
         <div class="field"><label>Saldo base — Rateio de Reforma (R$)</label><input id="cfg-saldo-rateio" type="number" step="0.01"></div>
         <div class="login-hint" style="text-align:left;margin-bottom:10px;">O Dashboard soma automaticamente os pagamentos recebidos e subtrai as despesas lançadas a partir deste valor base — você não precisa (e não deve) editar esse número manualmente depois, exceto para corrigir o ponto de partida.</div>
+        <div class="section-heading">Rateios de reforma / despesas extraordinárias</div>
+        <div id="rateios-lista"></div>
+        <div class="field-row">
+          <div class="field"><label>Descrição (motivo)</label><input id="rat-descricao" placeholder="Ex: Portões para lixeira"></div>
+          <div class="field"><label>Valor total (R$)</label><input id="rat-valor" type="number" step="0.01"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Nº de parcelas</label><input id="rat-parcelas" type="number" min="1"></div>
+          <div class="field"><label>Competência de início</label><input id="rat-inicio" type="month"></div>
+        </div>
+        <button class="btn" id="btn-add-rateio">+ Adicionar rateio</button>
+
+        <div class="section-heading">Dados bancários (usados nos e-mails de lembrete)</div>
+        <div class="field-row">
+          <div class="field"><label>Chave PIX</label><input id="cfg-pix"></div>
+          <div class="field"><label>Banco</label><input id="cfg-banco"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Agência</label><input id="cfg-agencia"></div>
+          <div class="field"><label>Conta</label><input id="cfg-conta"></div>
+        </div>
         <div class="section-heading">PINs de acesso por perfil (6 a 8 dígitos)</div>
         <div class="field-row">
           <div class="field"><label>Síndico(a) — PIN</label><input id="cfg-pin-sindico" maxlength="8"></div>
@@ -436,10 +457,16 @@
   <div class="modal">
     <div class="modal-header"><h3 id="modal-pagamento-title">Registrar pagamento</h3><button class="modal-close" data-close>✕</button></div>
     <div class="field-row">
-      <div class="field"><label>Valor pago (R$)</label><input id="pg-valor" type="number" step="0.01"></div>
+      <div class="field"><label>Valor da taxa condominial (R$)</label><input id="pg-valor-taxa" type="number" step="0.01"></div>
+      <div class="field"><label>Valor do rateio de reforma (R$)</label><input id="pg-valor-rateio" type="number" step="0.01"></div>
+    </div>
+    <div class="field" id="pg-rateio-info" style="font-size:12px;color:var(--ink-soft);margin-top:-8px;"></div>
+    <div class="field-row">
+      <div class="field"><label>Total (R$)</label><input id="pg-valor-total" type="number" step="0.01" disabled style="background:var(--accent-soft);font-weight:600;"></div>
       <div class="field"><label>Data do pagamento</label><input id="pg-data" type="date"></div>
     </div>
     <div class="field"><label>Forma de pagamento</label><select id="pg-forma"><option>PIX</option><option>Transferência</option><option>Dinheiro</option><option>Boleto</option></select></div>
+    <div id="pg-recibo-area" style="margin-top:4px;"></div>
     <div class="modal-actions">
       <button class="btn danger" id="btn-cancelar-pagamento" style="margin-right:auto;">Cancelar este pagamento</button>
       <button class="btn danger" id="btn-cancelar-pagamento-confirma" style="margin-right:auto;display:none;">Confirmar cancelamento?</button>
@@ -546,6 +573,8 @@ function defaultConfig(){
     valorTaxaPadrao: 505,
     competenciaAtual: "2026-05",
     saldosBase: { condominio: 0, fundoReserva: 0, rateioReforma: 0 },
+    dadosBancarios: { pix: "", banco: "", agencia: "", conta: "" },
+    rateios: [],
     pins: {
       sindico: { pin: "123456", email: "" },
       subsindico: { pin: "123456", email: "" },
@@ -570,6 +599,12 @@ async function initData(){
   if(!STATE.config.saldosBase){
     STATE.config.saldosBase = STATE.config.saldos || { condominio:0, fundoReserva:0, rateioReforma:0 };
     delete STATE.config.saldos;
+  }
+  if(!STATE.config.dadosBancarios){
+    STATE.config.dadosBancarios = { pix:"", banco:"", agencia:"", conta:"" };
+  }
+  if(!STATE.config.rateios){
+    STATE.config.rateios = [];
   }
   if(STATE.config.pins.sindico && typeof STATE.config.pins.sindico === 'string'){
     Object.keys(STATE.config.pins).forEach(role=>{
@@ -686,16 +721,46 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 
+function addMonths(compYYYYMM, n){
+  const [y,m] = compYYYYMM.split('-').map(Number);
+  const d = new Date(y, m-1+n, 1);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+}
+function rateiosAtivosNaCompetencia(comp){
+  return (STATE.config.rateios||[]).filter(r=>{
+    const fim = addMonths(r.competenciaInicio, r.numParcelas);
+    return comp >= r.competenciaInicio && comp < fim;
+  });
+}
+function parcelaRateioPorApto(comp){
+  const ativos = rateiosAtivosNaCompetencia(comp);
+  const numApt = STATE.config.numApartamentos || 1;
+  return ativos.reduce((total, r)=> total + (r.valorTotal / r.numParcelas / numApt), 0);
+}
+function numeroParcelaAtual(r, comp){
+  const [yA,mA] = r.competenciaInicio.split('-').map(Number);
+  const [yB,mB] = comp.split('-').map(Number);
+  return (yB-yA)*12 + (mB-mA) + 1;
+}
+
 function computeSaldos(){
   const base = STATE.config.saldosBase;
-  let recebidoCondominio = 0;
-  Object.values(STATE.pagamentos).forEach(p=>{ if(p && p.pago) recebidoCondominio += (p.valorPago||0); });
+  let recebidoCondominio = 0, recebidoRateio = 0;
+  Object.values(STATE.pagamentos).forEach(p=>{
+    if(!p || !p.pago) return;
+    if(p.valorTaxa !== undefined || p.valorRateio !== undefined){
+      recebidoCondominio += (p.valorTaxa||0);
+      recebidoRateio += (p.valorRateio||0);
+    } else {
+      recebidoCondominio += (p.valorPago||0); // registros antigos, sem separação
+    }
+  });
   const despesasPorCaixa = { condominio:0, fundoReserva:0, rateioReforma:0 };
   STATE.despesas.forEach(d=>{ despesasPorCaixa[d.caixa||'condominio'] += (d.valor||0); });
   return {
     condominio: base.condominio + recebidoCondominio - despesasPorCaixa.condominio,
     fundoReserva: base.fundoReserva - despesasPorCaixa.fundoReserva,
-    rateioReforma: base.rateioReforma - despesasPorCaixa.rateioReforma
+    rateioReforma: base.rateioReforma + recebidoRateio - despesasPorCaixa.rateioReforma
   };
 }
 
@@ -826,33 +891,110 @@ document.getElementById('btn-salvar-unidade').addEventListener('click', async ()
 });
 
 /* ---------------- RENDER: RECEBER PAGAMENTO ---------------- */
+function lembretesLiberados(comp){
+  const [y,m] = comp.split('-').map(Number);
+  const inicioMes = new Date(y, m-1, 1);
+  return new Date() >= inicioMes;
+}
+
 function renderPagamento(){
   const tbody = document.querySelector('#pagamento-table tbody');
   tbody.innerHTML = '';
   const comp = STATE.config.competenciaAtual;
+  const rateioApto = parcelaRateioPorApto(comp);
+  const liberado = lembretesLiberados(comp);
   for(let i=1;i<=STATE.config.numApartamentos;i++){
     const u = STATE.unidades[i] || {};
     const morador = (u.morador && u.morador.nome) || '—';
+    const email = u.morador && u.morador.email;
     const pagamento = STATE.pagamentos[comp+'_'+i];
-    const valor = (pagamento && pagamento.valorPago) || STATE.config.valorTaxaPadrao;
+    const valorEsperado = STATE.config.valorTaxaPadrao + rateioApto;
     const pago = pagamento && pagamento.pago;
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${i}</td><td>${morador}</td><td class="num">${fmtMoney(valor)}</td>
+    let btnLembrar = '';
+    if(!pago && !isReadOnly()){
+      if(!email){
+        btnLembrar = `<span style="color:var(--ink-faint);font-size:11.5px;">sem e-mail</span>`;
+      } else if(!liberado){
+        btnLembrar = `<span style="color:var(--ink-faint);font-size:11.5px;">disponível dia 1</span>`;
+      } else {
+        btnLembrar = `<button class="btn" data-lembrar="${i}">Lembrar</button><button class="btn" data-lembrar-confirma="${i}" style="display:none;">Confirmar envio?</button>`;
+      }
+    }
+    tr.innerHTML = `<td>${i}</td><td>${morador}</td><td class="num">${fmtMoney(valorEsperado)}</td>
       <td>${pago ? '<span class="badge ok">Pago</span>' : '<span class="badge no">Pendente</span>'}</td>
-      <td>${isReadOnly() ? '' : `<button class="btn" data-apto="${i}">${pago?'Editar':'Registrar'}</button>`}</td>`;
+      <td>${isReadOnly() ? '' : `<button class="btn" data-apto="${i}">${pago?'Editar':'Registrar'}</button>`}</td>
+      <td>${btnLembrar}</td>`;
     tbody.appendChild(tr);
   }
   tbody.querySelectorAll('button[data-apto]').forEach(b=>{
     b.addEventListener('click', ()=> openPagamentoModal(parseInt(b.dataset.apto)));
   });
+  tbody.querySelectorAll('button[data-lembrar]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      b.style.display = 'none';
+      b.parentElement.querySelector('button[data-lembrar-confirma]').style.display = 'inline-block';
+    });
+  });
+  tbody.querySelectorAll('button[data-lembrar-confirma]').forEach(b=>{
+    b.addEventListener('click', (e)=> enviarLembreteIndividual(parseInt(b.dataset.lembrarConfirma), e.currentTarget));
+  });
 }
+
+async function enviarLembreteIndividual(apto, btn){
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+  const comp = STATE.config.competenciaAtual;
+  const u = STATE.unidades[apto] || {};
+  const rateioApto = parcelaRateioPorApto(comp);
+  const valorEsperado = STATE.config.valorTaxaPadrao + rateioApto;
+  try{
+    const r = await apiCall('enviarLembretes', { params: {
+      lista: [{ apto, nome: u.morador.nome, email: u.morador.email, valor: valorEsperado }],
+      config: STATE.config.dadosBancarios,
+      nomeCondominio: STATE.config.nomeCondominio,
+      referencia: comp,
+      vencimento: '05/' + comp.split('-')[1] + '/' + comp.split('-')[0]
+    }});
+    if(r.ok && r.enviados > 0){
+      showToast(`Lembrete enviado ao Apto ${apto}.`);
+      await logAction(`Enviou lembrete de pagamento ao Apto ${apto}`);
+      btn.textContent = 'Enviado ✓';
+    } else {
+      showToast('Não foi possível enviar o lembrete.');
+      btn.disabled = false; btn.textContent = 'Confirmar envio?';
+    }
+  }catch(e){
+    console.error(e);
+    showToast('⚠ Erro ao enviar o lembrete.');
+    btn.disabled = false; btn.textContent = 'Confirmar envio?';
+  }
+}
+
+function atualizarTotalPagamento(){
+  const taxa = parseFloat(document.getElementById('pg-valor-taxa').value)||0;
+  const rateio = parseFloat(document.getElementById('pg-valor-rateio').value)||0;
+  document.getElementById('pg-valor-total').value = (taxa+rateio).toFixed(2);
+}
+document.getElementById('pg-valor-taxa').addEventListener('input', atualizarTotalPagamento);
+document.getElementById('pg-valor-rateio').addEventListener('input', atualizarTotalPagamento);
 
 function openPagamentoModal(apto){
   STATE.editingPagamento = apto;
   const comp = STATE.config.competenciaAtual;
   const pagamento = STATE.pagamentos[comp+'_'+apto] || {};
   document.getElementById('modal-pagamento-title').textContent = `Registrar pagamento — Apto ${apto}`;
-  document.getElementById('pg-valor').value = pagamento.valorPago || STATE.config.valorTaxaPadrao;
+  const rateioSugerido = parcelaRateioPorApto(comp);
+  const valorTaxa = (pagamento.valorTaxa !== undefined) ? pagamento.valorTaxa
+    : (pagamento.valorPago !== undefined ? pagamento.valorPago : STATE.config.valorTaxaPadrao);
+  const valorRateio = (pagamento.valorRateio !== undefined) ? pagamento.valorRateio : rateioSugerido;
+  document.getElementById('pg-valor-taxa').value = valorTaxa;
+  document.getElementById('pg-valor-rateio').value = valorRateio;
+  atualizarTotalPagamento();
+  const ativos = rateiosAtivosNaCompetencia(comp);
+  document.getElementById('pg-rateio-info').textContent = ativos.length
+    ? ativos.map(r=>`${r.descricao}: parcela ${numeroParcelaAtual(r,comp)}/${r.numParcelas}`).join(' · ')
+    : 'Nenhum rateio de reforma ativo nesta competência.';
   document.getElementById('pg-data').value = pagamento.dataPagamento || new Date().toISOString().slice(0,10);
   document.getElementById('pg-forma').value = pagamento.forma || 'PIX';
   const btnCancelar = document.getElementById('btn-cancelar-pagamento');
@@ -863,7 +1005,54 @@ function openPagamentoModal(apto){
   btnCancelarConfirma.style.display = 'none';
   btnConfirmar.style.display = 'inline-block';
   btnConfirmarEtapa2.style.display = 'none';
+
+  const reciboArea = document.getElementById('pg-recibo-area');
+  const u = STATE.unidades[apto] || {};
+  const email = u.morador && u.morador.email;
+  if(pagamento.pago && !isReadOnly()){
+    reciboArea.innerHTML = email
+      ? `<button class="btn" id="btn-enviar-recibo">✉️ Enviar recibo por e-mail (${email})</button>`
+      : `<div class="login-hint" style="text-align:left;">Cadastre o e-mail do morador na ficha da unidade para poder enviar o recibo.</div>`;
+    if(email){
+      document.getElementById('btn-enviar-recibo').addEventListener('click', (e)=> enviarRecibo(apto, e.currentTarget));
+    }
+  } else {
+    reciboArea.innerHTML = '';
+  }
+
   openModal('modal-pagamento');
+}
+
+async function enviarRecibo(apto, btn){
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = 'Enviando...';
+  const comp = STATE.config.competenciaAtual;
+  const pagamento = STATE.pagamentos[comp+'_'+apto];
+  const u = STATE.unidades[apto] || {};
+  try{
+    const r = await apiCall('enviarRecibo', { params: {
+      email: u.morador.email,
+      nome: u.morador.nome,
+      apto, referencia: comp,
+      valor: pagamento.valorPago,
+      data: pagamento.dataPagamento,
+      forma: pagamento.forma,
+      nomeCondominio: STATE.config.nomeCondominio
+    }});
+    if(r.ok){
+      showToast('Recibo enviado por e-mail.');
+      await logAction(`Enviou recibo por e-mail ao Apto ${apto}`);
+      btn.textContent = 'Enviado ✓';
+    } else {
+      showToast('Não foi possível enviar: ' + (r.motivo||'erro desconhecido'));
+      btn.disabled = false; btn.textContent = original;
+    }
+  }catch(e){
+    console.error(e);
+    showToast('⚠ Erro ao enviar o recibo. Tente novamente.');
+    btn.disabled = false; btn.textContent = original;
+  }
 }
 
 function verificarPagamentoEmBackground(key, esperandoPago){
@@ -913,9 +1102,12 @@ document.getElementById('btn-confirmar-pagamento-etapa2').addEventListener('clic
   const apto = STATE.editingPagamento;
   const comp = STATE.config.competenciaAtual;
   const key = comp+'_'+apto;
-  const valor = parseFloat(document.getElementById('pg-valor').value)||0;
+  const valorTaxa = parseFloat(document.getElementById('pg-valor-taxa').value)||0;
+  const valorRateio = parseFloat(document.getElementById('pg-valor-rateio').value)||0;
+  const valor = valorTaxa + valorRateio;
   STATE.pagamentos[key] = {
     pago: true,
+    valorTaxa, valorRateio,
     valorPago: valor,
     dataPagamento: document.getElementById('pg-data').value,
     forma: document.getElementById('pg-forma').value
@@ -930,6 +1122,21 @@ document.getElementById('btn-confirmar-pagamento-etapa2').addEventListener('clic
 
   storageSet('pagamentos', STATE.pagamentos, true, true).then(()=> verificarPagamentoEmBackground(key, true));
   logAction(`Registrou pagamento do Apto ${apto} (${fmtMoney(valor)})`);
+
+  // Recibo automático — só quando o valor cobre taxa integral + rateio devido (se houver)
+  const rateioDevido = parcelaRateioPorApto(comp);
+  const pagouIntegral = Math.abs(valorTaxa - STATE.config.valorTaxaPadrao) < 0.01 && Math.abs(valorRateio - rateioDevido) < 0.01;
+  const u = STATE.unidades[apto] || {};
+  if(pagouIntegral && u.morador && u.morador.email){
+    try{
+      const r = await apiCall('enviarRecibo', { params: {
+        email: u.morador.email, nome: u.morador.nome, apto, referencia: comp,
+        valor, data: STATE.pagamentos[key].dataPagamento, forma: STATE.pagamentos[key].forma,
+        nomeCondominio: STATE.config.nomeCondominio
+      }});
+      if(r.ok){ logAction(`Recibo enviado automaticamente ao Apto ${apto} (pagamento integral)`); showToast('Pagamento registrado — recibo enviado automaticamente.'); }
+    }catch(err){ console.error('falha ao enviar recibo automático', err); }
+  }
 });
 
 /* ---------------- RENDER: DESPESAS ---------------- */
@@ -1155,6 +1362,69 @@ document.getElementById('btn-salvar-fornecedor').addEventListener('click', async
 });
 
 /* ---------------- RENDER: CONFIG ---------------- */
+function renderRateios(){
+  const box = document.getElementById('rateios-lista');
+  const rateios = STATE.config.rateios || [];
+  const comp = STATE.config.competenciaAtual;
+  const numApt = STATE.config.numApartamentos || 1;
+  if(rateios.length === 0){
+    box.innerHTML = `<div class="login-hint" style="text-align:left;margin-bottom:10px;">Nenhum rateio cadastrado.</div>`;
+  } else {
+    box.innerHTML = rateios.map((r,i)=>{
+      const fim = addMonths(r.competenciaInicio, r.numParcelas);
+      const ativo = comp >= r.competenciaInicio && comp < fim;
+      const porApto = r.valorTotal / r.numParcelas / numApt;
+      return `<div class="card" style="margin-bottom:8px;padding:12px 14px;">
+        <div class="flex-between">
+          <div>
+            <b>${r.descricao}</b>
+            <div style="font-size:12px;color:var(--ink-soft);margin-top:2px;">
+              ${fmtMoney(r.valorTotal)} em ${r.numParcelas}x de ${fmtMoney(r.valorTotal/r.numParcelas)}
+              (${fmtMoney(porApto)}/apto/mês) — de ${r.competenciaInicio} até ${addMonths(r.competenciaInicio, r.numParcelas-1)}
+              ${ativo ? ' · <span style="color:var(--accent-dark);font-weight:600;">ativo agora</span>' : ''}
+            </div>
+          </div>
+          ${isReadOnly() ? '' : `<button class="btn danger" data-remove-rateio="${i}" style="font-size:12px;padding:6px 10px;">Remover</button>`}
+        </div>
+      </div>`;
+    }).join('');
+    box.querySelectorAll('button[data-remove-rateio]').forEach(b=>{
+      b.addEventListener('click', async ()=>{
+        const i = parseInt(b.dataset.removeRateio);
+        STATE.config.rateios.splice(i,1);
+        await storageSet('config', STATE.config, true, true);
+        await logAction('Removeu um rateio de reforma das configurações');
+        renderRateios();
+        renderDashboard();
+        showToast('Rateio removido.');
+      });
+    });
+  }
+  document.getElementById('btn-add-rateio').style.display = isReadOnly() ? 'none' : 'inline-block';
+  if(!document.getElementById('rat-inicio').value) document.getElementById('rat-inicio').value = comp;
+}
+
+document.getElementById('btn-add-rateio').addEventListener('click', async ()=>{
+  const descricao = document.getElementById('rat-descricao').value.trim();
+  const valorTotal = parseFloat(document.getElementById('rat-valor').value)||0;
+  const numParcelas = parseInt(document.getElementById('rat-parcelas').value)||0;
+  const competenciaInicio = document.getElementById('rat-inicio').value;
+  if(!descricao || valorTotal<=0 || numParcelas<=0 || !competenciaInicio){
+    showToast('Preencha descrição, valor total, nº de parcelas e competência de início.');
+    return;
+  }
+  STATE.config.rateios = STATE.config.rateios || [];
+  STATE.config.rateios.push({ descricao, valorTotal, numParcelas, competenciaInicio });
+  await storageSet('config', STATE.config, true, true);
+  await logAction(`Cadastrou rateio "${descricao}" de ${fmtMoney(valorTotal)} em ${numParcelas}x`);
+  document.getElementById('rat-descricao').value='';
+  document.getElementById('rat-valor').value='';
+  document.getElementById('rat-parcelas').value='';
+  renderRateios();
+  renderDashboard();
+  showToast('Rateio adicionado.');
+});
+
 function renderConfig(){
   const c = STATE.config;
   document.getElementById('cfg-nome').value = c.nomeCondominio;
@@ -1165,6 +1435,10 @@ function renderConfig(){
   document.getElementById('cfg-saldo-condo').value = c.saldosBase.condominio;
   document.getElementById('cfg-saldo-fundo').value = c.saldosBase.fundoReserva;
   document.getElementById('cfg-saldo-rateio').value = c.saldosBase.rateioReforma;
+  document.getElementById('cfg-pix').value = c.dadosBancarios.pix;
+  document.getElementById('cfg-banco').value = c.dadosBancarios.banco;
+  document.getElementById('cfg-agencia').value = c.dadosBancarios.agencia;
+  document.getElementById('cfg-conta').value = c.dadosBancarios.conta;
   ['sindico','subsindico','conselho','administrador'].forEach(role=>{
     document.getElementById('cfg-pin-'+role).value = c.pins[role].pin;
     document.getElementById('cfg-email-'+role).value = c.pins[role].email || '';
@@ -1172,6 +1446,7 @@ function renderConfig(){
   const ro = isReadOnly();
   document.querySelectorAll('#view-config input').forEach(el=> el.disabled = ro);
   document.getElementById('btn-salvar-config').style.display = ro ? 'none' : 'inline-block';
+  renderRateios();
 }
 document.getElementById('btn-salvar-config').addEventListener('click', async (e)=>{
   const btn = e.currentTarget;
@@ -1198,6 +1473,10 @@ document.getElementById('btn-salvar-config').addEventListener('click', async (e)
   c.saldosBase.condominio = parseFloat(document.getElementById('cfg-saldo-condo').value)||0;
   c.saldosBase.fundoReserva = parseFloat(document.getElementById('cfg-saldo-fundo').value)||0;
   c.saldosBase.rateioReforma = parseFloat(document.getElementById('cfg-saldo-rateio').value)||0;
+  c.dadosBancarios.pix = document.getElementById('cfg-pix').value;
+  c.dadosBancarios.banco = document.getElementById('cfg-banco').value;
+  c.dadosBancarios.agencia = document.getElementById('cfg-agencia').value;
+  c.dadosBancarios.conta = document.getElementById('cfg-conta').value;
   roles.forEach(role=>{
     const pinVal = document.getElementById('cfg-pin-'+role).value.trim();
     c.pins[role].pin = pinVal || c.pins[role].pin;
