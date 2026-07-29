@@ -39,9 +39,12 @@
   .login-card h1{font-size:22px;margin-bottom:4px;}
   .login-sub{color:var(--ink-soft);font-size:13px;margin-bottom:24px;}
   .role-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;}
-  .role-btn{padding:12px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px;text-align:center;transition:.15s;}
+  .role-btn{padding:12px 8px;border:2px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px;text-align:center;transition:.15s;}
   .role-btn:hover{border-color:var(--accent);}
-  .role-btn.selected{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-dark);font-weight:600;}
+  .role-btn.selected{border-color:var(--accent);background:var(--accent);color:#fff;font-weight:700;box-shadow:0 2px 8px rgba(47,111,98,0.35);}
+  .role-btn.selected small{color:#fff;}
+  .role-btn:disabled, .login-card input:disabled, .btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-primary:disabled{background:var(--ink-faint);}
   .login-card input[type=password]{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;margin-bottom:12px;letter-spacing:2px;}
   .btn-primary{width:100%;padding:11px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:14px;font-weight:600;}
   .btn-primary:hover{background:var(--accent-dark);}
@@ -179,14 +182,14 @@
     <h1 id="login-condo-name">SGCA</h1>
     <div class="login-sub">Sistema de Gestão do Condomínio — selecione seu perfil</div>
     <div class="role-grid" id="role-grid">
-      <button class="role-btn" data-role="sindico">Síndico(a)</button>
-      <button class="role-btn" data-role="subsindico">Subsíndico(a)</button>
-      <button class="role-btn" data-role="conselho">Pres. Conselho<br><small>(somente leitura)</small></button>
-      <button class="role-btn" data-role="administrador">Administrador(a)</button>
+      <button class="role-btn" data-role="sindico" disabled>Síndico(a)</button>
+      <button class="role-btn" data-role="subsindico" disabled>Subsíndico(a)</button>
+      <button class="role-btn" data-role="conselho" disabled>Pres. Conselho<br><small>(somente leitura)</small></button>
+      <button class="role-btn" data-role="administrador" disabled>Administrador(a)</button>
     </div>
-    <input type="password" id="pin-input" placeholder="PIN de acesso (6 a 8 dígitos)" maxlength="8">
+    <input type="password" id="pin-input" placeholder="PIN de acesso (6 a 8 dígitos)" maxlength="8" disabled>
     <div class="login-error" id="login-error"></div>
-    <button class="btn-primary" id="login-btn">Entrar</button>
+    <button class="btn-primary" id="login-btn" disabled>Carregando dados da planilha...</button>
     <div class="login-hint">PIN padrão inicial: 123456 para todos os perfis.<br>Altere em Configurações após o primeiro acesso.</div>
     <div class="login-hint" style="margin-top:6px;"><a href="#" id="link-morador">Sou morador — quero só ver a prestação de contas</a></div>
   </div>
@@ -664,15 +667,20 @@ document.getElementById('pin-input').addEventListener('keydown', e=>{ if(e.key==
 function doLogin(){
   const err = document.getElementById('login-error');
   if(!selectedRole){ err.textContent = 'Selecione um perfil.'; return; }
-  const pin = document.getElementById('pin-input').value.trim();
-  const expected = (STATE.config.pins[selectedRole] && STATE.config.pins[selectedRole].pin) || '123456';
-  if(pin !== expected){ err.textContent = 'PIN incorreto.'; return; }
-  STATE.currentUser = { role: selectedRole, label: ROLE_LABELS[selectedRole] };
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app').style.display = 'flex';
-  document.getElementById('current-user-label').textContent = STATE.currentUser.label + (isReadOnly() ? ' · leitura' : '');
-  logAction('Login no sistema');
-  renderAll();
+  try{
+    const pin = document.getElementById('pin-input').value.trim();
+    const expected = (STATE.config && STATE.config.pins[selectedRole] && STATE.config.pins[selectedRole].pin) || '123456';
+    if(pin !== expected){ err.textContent = 'PIN incorreto.'; return; }
+    STATE.currentUser = { role: selectedRole, label: ROLE_LABELS[selectedRole] };
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    document.getElementById('current-user-label').textContent = STATE.currentUser.label + (isReadOnly() ? ' · leitura' : '');
+    logAction('Login no sistema');
+    renderAll();
+  }catch(e){
+    console.error('erro no login', e);
+    err.textContent = 'Erro inesperado. Recarregue a página e tente de novo.';
+  }
 }
 
 function enterPublicMode(){
@@ -1585,11 +1593,4 @@ document.getElementById('btn-add-rateio-confirma').addEventListener('click', asy
 
 function renderConfig(){
   const c = STATE.config;
-  document.getElementById('cfg-nome').value = c.nomeCondominio;
-  document.getElementById('cfg-numapt').value = c.numApartamentos;
-  document.getElementById('cfg-numvagas').value = c.numVagas;
-  document.getElementById('cfg-valortaxa').value = c.valorTaxaPadrao;
-  document.getElementById('cfg-competencia').value = c.competenciaAtual;
-  document.getElementById('cfg-saldo-condo').value = c.saldosBase.condominio;
-  document.getElementById('cfg-saldo-fundo').value = c.saldosBase.fundoReserva;
-  document.getElementById('cfg-sal
+  document.getElementById('cfg-nome').value = c.nome
