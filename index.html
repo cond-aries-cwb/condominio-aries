@@ -250,6 +250,8 @@
         </div>
       </div>
 
+      <div id="painel-atrasos-wrap"></div>
+
       <div class="section-heading">Ações rápidas</div>
       <div class="quick-actions" style="margin-bottom:26px;">
         <button class="qa-btn" data-goto="pagamento"><span class="ic">💰</span><b>Receber Pagamento</b></button>
@@ -331,15 +333,20 @@
         <div class="login-hint" style="text-align:left;margin-bottom:10px;">O Dashboard soma automaticamente os pagamentos recebidos e subtrai as despesas lançadas a partir deste valor base — você não precisa (e não deve) editar esse número manualmente depois, exceto para corrigir o ponto de partida.</div>
         <div class="section-heading">Rateios de reforma / despesas extraordinárias</div>
         <div id="rateios-lista"></div>
-        <div class="field-row">
-          <div class="field"><label>Descrição (motivo)</label><input id="rat-descricao" placeholder="Ex: Portões para lixeira"></div>
-          <div class="field"><label>Valor total (R$)</label><input id="rat-valor" type="number" step="0.01"></div>
+        <button class="btn" id="btn-novo-rateio">+ Novo rateio</button>
+        <div id="rateio-form-fields" style="display:none;margin-top:10px;">
+          <div class="field-row">
+            <div class="field"><label>Descrição (motivo)</label><input id="rat-descricao" placeholder="Ex: Portões para lixeira"></div>
+            <div class="field"><label>Valor total (R$)</label><input id="rat-valor" type="number" step="0.01"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Nº de parcelas</label><input id="rat-parcelas" type="number" min="1"></div>
+            <div class="field"><label>Competência de início</label><input id="rat-inicio" type="month"></div>
+          </div>
+          <button class="btn" id="btn-cancelar-rateio">Cancelar</button>
+          <button class="btn primary" id="btn-add-rateio">Salvar rateio</button>
+          <button class="btn primary" id="btn-add-rateio-confirma" style="display:none;">Confirmar inclusão?</button>
         </div>
-        <div class="field-row">
-          <div class="field"><label>Nº de parcelas</label><input id="rat-parcelas" type="number" min="1"></div>
-          <div class="field"><label>Competência de início</label><input id="rat-inicio" type="month"></div>
-        </div>
-        <button class="btn" id="btn-add-rateio">+ Adicionar rateio</button>
 
         <div class="section-heading">Dados bancários (usados nos e-mails de lembrete)</div>
         <div class="field-row">
@@ -461,6 +468,7 @@
       <div class="field"><label>Valor do rateio de reforma (R$)</label><input id="pg-valor-rateio" type="number" step="0.01"></div>
     </div>
     <div class="field" id="pg-rateio-info" style="font-size:12px;color:var(--ink-soft);margin-top:-8px;"></div>
+    <div class="field" id="pg-atraso-info" style="font-size:12px;margin-top:-8px;"></div>
     <div class="field-row">
       <div class="field"><label>Total (R$)</label><input id="pg-valor-total" type="number" step="0.01" disabled style="background:var(--accent-soft);font-weight:600;"></div>
       <div class="field"><label>Data do pagamento</label><input id="pg-data" type="date"></div>
@@ -721,6 +729,35 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 
+function vencimentoDaCompetencia(comp){
+  const [y,m] = comp.split('-').map(Number);
+  let d = new Date(y, m-1, 5);
+  const dow = d.getDay(); // 0=domingo .. 6=sábado
+  if(dow === 6) d.setDate(d.getDate()+2);
+  else if(dow === 0) d.setDate(d.getDate()+1);
+  return d;
+}
+function calcularMultaJuros(valor, vencimento, dataRef){
+  const dias = Math.floor((dataRef - vencimento) / 86400000);
+  if(dias <= 0) return {dias:0, multa:0, juros:0, total:valor};
+  const multa = valor * 0.02;
+  const juros = valor * 0.01 * (dias/30);
+  return {dias, multa, juros, total: valor+multa+juros};
+}
+function historicoAtrasoPorApto(apto){
+  let vezes = 0, ultimaQuitacao = null;
+  Object.keys(STATE.pagamentos).forEach(key=>{
+    if(!key.endsWith('_'+apto)) return;
+    const p = STATE.pagamentos[key];
+    if(!p || !p.pago || !p.dataPagamento) return;
+    const comp = key.split('_')[0];
+    const venc = vencimentoDaCompetencia(comp);
+    const pago = new Date(p.dataPagamento+'T00:00:00');
+    if(pago > venc){ vezes++; if(!ultimaQuitacao || pago>ultimaQuitacao) ultimaQuitacao = pago; }
+  });
+  return { vezes, ultimaQuitacao };
+}
+
 function addMonths(compYYYYMM, n){
   const [y,m] = compYYYYMM.split('-').map(Number);
   const d = new Date(y, m-1+n, 1);
@@ -764,6 +801,53 @@ function computeSaldos(){
   };
 }
 
+function renderPainelAtrasos(){
+  const wrap = document.getElementById('painel-atrasos-wrap');
+  if(isReadOnly()){ wrap.innerHTML = ''; return; } // Conselho e visitantes não veem isso
+
+  const comp = STATE.config.competenciaAtual;
+  const venc = vencimentoDaCompetencia(comp);
+  const hoje = new Date();
+  const rateioApto = parcelaRateioPorApto(comp);
+  const valorEsperado = STATE.config.valorTaxaPadrao + rateioApto;
+
+  const linhas = [];
+  for(let i=1;i<=STATE.config.numApartamentos;i++){
+    const pagamento = STATE.pagamentos[comp+'_'+i];
+    if(pagamento && pagamento.pago) continue; // já pagou
+    if(hoje <= venc) continue; // ainda no prazo
+    const u = STATE.unidades[i] || {};
+    const calc = calcularMultaJuros(valorEsperado, venc, hoje);
+    const hist = historicoAtrasoPorApto(i);
+    linhas.push({ apto:i, nome:(u.morador&&u.morador.nome)||'—', ...calc, vezesAtrasouAntes: hist.vezes });
+  }
+
+  if(linhas.length === 0){
+    wrap.innerHTML = `<div class="card" style="margin-bottom:22px;">
+      <div class="stat-label">Atrasos (visão interna — síndico/subsíndico/administrador)</div>
+      <div style="color:var(--ink-faint);font-size:13px;margin-top:6px;">Nenhum apartamento em atraso no momento nesta competência. Vencimento: ${venc.toLocaleDateString('pt-BR')}.</div>
+    </div>`;
+    return;
+  }
+
+  wrap.innerHTML = `<div class="card" style="margin-bottom:22px;border-left:3px solid var(--alert);">
+    <div class="stat-label">Atrasos (visão interna — síndico/subsíndico/administrador)</div>
+    <div style="font-size:12px;color:var(--ink-soft);margin:4px 0 10px;">Vencimento desta competência: ${venc.toLocaleDateString('pt-BR')}. Multa e juros abaixo são uma referência (2% + 1% a.m. pro-rata) — confirme o cálculo final com a contadora.</div>
+    <table class="ledger">
+      <thead><tr><th>Apto</th><th>Morador</th><th class="num">Dias</th><th class="num">Multa+juros (ref.)</th><th class="num">Total sugerido</th><th>Reincidência</th></tr></thead>
+      <tbody>
+        ${linhas.map(l=>`<tr>
+          <td>${l.apto}</td><td>${l.nome}</td>
+          <td class="num">${l.dias}</td>
+          <td class="num">${fmtMoney(l.multa+l.juros)}</td>
+          <td class="num"><b>${fmtMoney(l.total)}</b></td>
+          <td>${l.vezesAtrasouAntes>0 ? `⚠ atrasou ${l.vezesAtrasouAntes}x antes` : 'primeira vez'}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
 /* ---------------- RENDER: DASHBOARD ---------------- */
 function renderDashboard(){
   const s = computeSaldos();
@@ -792,6 +876,7 @@ function renderDashboard(){
   if(alertsBox.innerHTML===''){
     alertsBox.innerHTML = `<div class="alert-row" style="color:var(--ink-faint);">Nenhum alerta no momento.</div>`;
   }
+  renderPainelAtrasos();
 }
 
 function renderLog(){
@@ -995,6 +1080,17 @@ function openPagamentoModal(apto){
   document.getElementById('pg-rateio-info').textContent = ativos.length
     ? ativos.map(r=>`${r.descricao}: parcela ${numeroParcelaAtual(r,comp)}/${r.numParcelas}`).join(' · ')
     : 'Nenhum rateio de reforma ativo nesta competência.';
+
+  const atrasoInfo = document.getElementById('pg-atraso-info');
+  const vencAtual = vencimentoDaCompetencia(comp);
+  const hoje = new Date();
+  if(!pagamento.pago && hoje > vencAtual){
+    const calc = calcularMultaJuros(valorTaxa + valorRateio, vencAtual, hoje);
+    atrasoInfo.style.color = 'var(--alert)';
+    atrasoInfo.textContent = `⚠ Em atraso há ${calc.dias} dia(s) — venceu em ${vencAtual.toLocaleDateString('pt-BR')}. Referência de multa+juros: ${fmtMoney(calc.multa+calc.juros)} (total sugerido: ${fmtMoney(calc.total)}). Confirme com a contadora antes de cobrar.`;
+  } else {
+    atrasoInfo.textContent = '';
+  }
   document.getElementById('pg-data').value = pagamento.dataPagamento || new Date().toISOString().slice(0,10);
   document.getElementById('pg-forma').value = pagamento.forma || 'PIX';
   const btnCancelar = document.getElementById('btn-cancelar-pagamento');
@@ -1409,7 +1505,7 @@ function renderRateios(){
       });
     });
   }
-  document.getElementById('btn-add-rateio').style.display = isReadOnly() ? 'none' : 'inline-block';
+  document.getElementById('btn-novo-rateio').style.display = isReadOnly() ? 'none' : 'inline-block';
   if(!document.getElementById('rat-inicio').value) document.getElementById('rat-inicio').value = comp;
 }
 
@@ -1428,8 +1524,24 @@ async function salvarConfigVerificado(motivoLog){
   return confirmado;
 }
 
-document.getElementById('btn-add-rateio').addEventListener('click', async (e)=>{
-  const btn = e.currentTarget;
+function fecharFormRateio(){
+  document.getElementById('rateio-form-fields').style.display = 'none';
+  document.getElementById('btn-novo-rateio').style.display = isReadOnly() ? 'none' : 'inline-block';
+  document.getElementById('rat-descricao').value='';
+  document.getElementById('rat-valor').value='';
+  document.getElementById('rat-parcelas').value='';
+  document.getElementById('btn-add-rateio').style.display = 'inline-block';
+  document.getElementById('btn-add-rateio-confirma').style.display = 'none';
+}
+
+document.getElementById('btn-novo-rateio').addEventListener('click', ()=>{
+  document.getElementById('rateio-form-fields').style.display = 'block';
+  document.getElementById('btn-novo-rateio').style.display = 'none';
+  document.getElementById('rat-inicio').value = STATE.config.competenciaAtual;
+});
+document.getElementById('btn-cancelar-rateio').addEventListener('click', fecharFormRateio);
+
+document.getElementById('btn-add-rateio').addEventListener('click', ()=>{
   const descricao = document.getElementById('rat-descricao').value.trim();
   const valorTotal = parseFloat(document.getElementById('rat-valor').value)||0;
   const numParcelas = parseInt(document.getElementById('rat-parcelas').value)||0;
@@ -1438,6 +1550,17 @@ document.getElementById('btn-add-rateio').addEventListener('click', async (e)=>{
     showToast('Preencha descrição, valor total, nº de parcelas e competência de início.');
     return;
   }
+  document.getElementById('btn-add-rateio').style.display = 'none';
+  document.getElementById('btn-add-rateio-confirma').style.display = 'inline-block';
+});
+
+document.getElementById('btn-add-rateio-confirma').addEventListener('click', async (e)=>{
+  const btn = e.currentTarget;
+  const descricao = document.getElementById('rat-descricao').value.trim();
+  const valorTotal = parseFloat(document.getElementById('rat-valor').value)||0;
+  const numParcelas = parseInt(document.getElementById('rat-parcelas').value)||0;
+  const competenciaInicio = document.getElementById('rat-inicio').value;
+
   btn.disabled = true;
   btn.textContent = 'Salvando...';
   STATE.config.rateios = STATE.config.rateios || [];
@@ -1445,18 +1568,16 @@ document.getElementById('btn-add-rateio').addEventListener('click', async (e)=>{
 
   const ok = await salvarConfigVerificado();
   btn.disabled = false;
-  btn.textContent = '+ Adicionar rateio';
+  btn.textContent = 'Confirmar inclusão?';
 
   if(!ok){
-    STATE.config.rateios.pop(); // desfaz localmente, já que não confirmou
+    STATE.config.rateios.pop();
     showToast('⚠ Não consegui confirmar o salvamento do rateio na planilha. Tente novamente.');
     return;
   }
 
   await logAction(`Cadastrou rateio "${descricao}" de ${fmtMoney(valorTotal)} em ${numParcelas}x`);
-  document.getElementById('rat-descricao').value='';
-  document.getElementById('rat-valor').value='';
-  document.getElementById('rat-parcelas').value='';
+  fecharFormRateio();
   renderRateios();
   renderDashboard();
   showToast('Rateio adicionado e confirmado.');
@@ -1471,137 +1592,4 @@ function renderConfig(){
   document.getElementById('cfg-competencia').value = c.competenciaAtual;
   document.getElementById('cfg-saldo-condo').value = c.saldosBase.condominio;
   document.getElementById('cfg-saldo-fundo').value = c.saldosBase.fundoReserva;
-  document.getElementById('cfg-saldo-rateio').value = c.saldosBase.rateioReforma;
-  document.getElementById('cfg-pix').value = c.dadosBancarios.pix;
-  document.getElementById('cfg-banco').value = c.dadosBancarios.banco;
-  document.getElementById('cfg-agencia').value = c.dadosBancarios.agencia;
-  document.getElementById('cfg-conta').value = c.dadosBancarios.conta;
-  ['sindico','subsindico','conselho','administrador'].forEach(role=>{
-    document.getElementById('cfg-pin-'+role).value = c.pins[role].pin;
-    document.getElementById('cfg-email-'+role).value = c.pins[role].email || '';
-  });
-  const ro = isReadOnly();
-  document.querySelectorAll('#view-config input').forEach(el=> el.disabled = ro);
-  document.getElementById('btn-salvar-config').style.display = ro ? 'none' : 'inline-block';
-  renderRateios();
-}
-document.getElementById('btn-salvar-config').addEventListener('click', async (e)=>{
-  const btn = e.currentTarget;
-  if(btn.disabled) return;
-
-  const roles = ['sindico','subsindico','conselho','administrador'];
-  for(const role of roles){
-    const pinVal = document.getElementById('cfg-pin-'+role).value.trim();
-    if(pinVal && !/^\d{6,8}$/.test(pinVal)){
-      showToast('O PIN de ' + ROLE_LABELS[role] + ' precisa ter de 6 a 8 dígitos numéricos. Nada foi salvo ainda.');
-      return;
-    }
-  }
-
-  btn.disabled = true;
-  btn.textContent = 'Salvando...';
-
-  const c = STATE.config;
-  c.nomeCondominio = document.getElementById('cfg-nome').value;
-  c.numApartamentos = parseInt(document.getElementById('cfg-numapt').value)||c.numApartamentos;
-  c.numVagas = parseInt(document.getElementById('cfg-numvagas').value)||c.numVagas;
-  c.valorTaxaPadrao = parseFloat(document.getElementById('cfg-valortaxa').value)||c.valorTaxaPadrao;
-  c.competenciaAtual = document.getElementById('cfg-competencia').value || c.competenciaAtual;
-  c.saldosBase.condominio = parseFloat(document.getElementById('cfg-saldo-condo').value)||0;
-  c.saldosBase.fundoReserva = parseFloat(document.getElementById('cfg-saldo-fundo').value)||0;
-  c.saldosBase.rateioReforma = parseFloat(document.getElementById('cfg-saldo-rateio').value)||0;
-  c.dadosBancarios.pix = document.getElementById('cfg-pix').value;
-  c.dadosBancarios.banco = document.getElementById('cfg-banco').value;
-  c.dadosBancarios.agencia = document.getElementById('cfg-agencia').value;
-  c.dadosBancarios.conta = document.getElementById('cfg-conta').value;
-  roles.forEach(role=>{
-    const pinVal = document.getElementById('cfg-pin-'+role).value.trim();
-    c.pins[role].pin = pinVal || c.pins[role].pin;
-    c.pins[role].email = document.getElementById('cfg-email-'+role).value.trim();
-  });
-
-  await storageSet('config', c, true, true);
-
-  // Verificação: relê o que foi realmente persistido antes de confirmar sucesso ao usuário
-  let confirmado = false;
-  for(let tentativa=0; tentativa<3 && !confirmado; tentativa++){
-    const relido = await storageGet('config', true, null);
-    if(relido && relido.saldosBase && relido.saldosBase.condominio === c.saldosBase.condominio
-       && relido.nomeCondominio === c.nomeCondominio){
-      confirmado = true;
-    } else {
-      await new Promise(r=>setTimeout(r,500));
-    }
-  }
-
-  btn.disabled = false;
-  btn.textContent = 'Salvar configurações';
-
-  if(!confirmado){
-    showToast('⚠ Não consegui confirmar que salvou. Tente novamente em alguns segundos.');
-    return;
-  }
-
-  await logAction('Atualizou as configurações do sistema');
-  document.getElementById('topbar-condo-name').textContent = c.nomeCondominio;
-  document.getElementById('competencia-pill').textContent = 'Competência: ' + c.competenciaAtual;
-  renderAll();
-  showToast('Configurações salvas e confirmadas.');
-});
-
-/* ---------------- SEARCH ---------------- */
-document.getElementById('search-input').addEventListener('input', e=>{
-  const q = e.target.value.trim().toLowerCase();
-  const box = document.getElementById('search-results');
-  if(!q){ box.style.display='none'; return; }
-  const results = [];
-  for(let i=1;i<=STATE.config.numApartamentos;i++){
-    const u = STATE.unidades[i];
-    if((''+i).includes(q) || (u && u.morador && u.morador.nome && u.morador.nome.toLowerCase().includes(q))){
-      results.push({label:`🏠 Apto ${i}${u&&u.morador&&u.morador.nome?' — '+u.morador.nome:''}`, action:()=>{ goto('unidades'); openUnidadeModal(i); }});
-    }
-  }
-  STATE.fornecedores.forEach(f=>{
-    if(f.nome.toLowerCase().includes(q) || (f.categoria||'').toLowerCase().includes(q)){
-      results.push({label:`🧰 ${f.nome}`, action:()=> goto('fornecedores')});
-    }
-  });
-  STATE.historico.forEach((item,idx)=>{
-    if(competenciaLabel(item).toLowerCase().includes(q)){
-      results.push({label:`📊 ${competenciaLabel(item)}`, action:()=>{ goto('prestacao'); document.getElementById('pc-competencia').value=idx; renderPrestacaoContent(); }});
-    }
-  });
-  box.innerHTML = results.slice(0,8).map((r,i)=>`<div data-i="${i}">${r.label}</div>`).join('') || '<div style="color:var(--ink-faint);">Nada encontrado.</div>';
-  box.style.display = 'block';
-  box.querySelectorAll('div[data-i]').forEach(d=>{
-    d.addEventListener('click', ()=>{ results[parseInt(d.dataset.i)].action(); box.style.display='none'; e.target.value=''; });
-  });
-});
-document.addEventListener('click', e=>{
-  if(!e.target.closest('#searchbox')) document.getElementById('search-results').style.display='none';
-});
-
-/* ---------------- INIT ---------------- */
-function renderAll(){
-  document.getElementById('topbar-condo-name').textContent = STATE.config.nomeCondominio;
-  document.getElementById('competencia-pill').textContent = 'Competência: ' + STATE.config.competenciaAtual;
-  renderDashboard();
-  renderUnidades();
-  renderPagamento();
-  renderDespesas();
-  renderPrestacaoSelect();
-  renderPrestacaoContent();
-  renderFornecedores();
-  renderConfig();
-  renderLog();
-}
-
-initData().then(()=>{
-  const params = new URLSearchParams(location.search);
-  if(params.get('publico') === '1'){
-    enterPublicMode();
-  }
-});
-</script>
-</body>
-</html>
+  document.getElementById('cfg-sal
