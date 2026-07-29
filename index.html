@@ -1389,11 +1389,20 @@ function renderRateios(){
       </div>`;
     }).join('');
     box.querySelectorAll('button[data-remove-rateio]').forEach(b=>{
-      b.addEventListener('click', async ()=>{
-        const i = parseInt(b.dataset.removeRateio);
+      b.addEventListener('click', async (e)=>{
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        const i = parseInt(btn.dataset.removeRateio);
+        const removido = STATE.config.rateios[i];
         STATE.config.rateios.splice(i,1);
-        await storageSet('config', STATE.config, true, true);
-        await logAction('Removeu um rateio de reforma das configurações');
+        const ok = await salvarConfigVerificado('rateios');
+        if(!ok){
+          STATE.config.rateios.splice(i,0,removido); // desfaz localmente
+          showToast('⚠ Não consegui confirmar a remoção. Tente novamente.');
+          renderRateios();
+          return;
+        }
+        await logAction(`Removeu o rateio "${removido.descricao}" das configurações`);
         renderRateios();
         renderDashboard();
         showToast('Rateio removido.');
@@ -1404,7 +1413,23 @@ function renderRateios(){
   if(!document.getElementById('rat-inicio').value) document.getElementById('rat-inicio').value = comp;
 }
 
-document.getElementById('btn-add-rateio').addEventListener('click', async ()=>{
+// Salva o config atual e confere de verdade se persistiu, comparando um trecho relevante.
+async function salvarConfigVerificado(motivoLog){
+  await storageSet('config', STATE.config, true, true);
+  let confirmado = false;
+  for(let tentativa=0; tentativa<3 && !confirmado; tentativa++){
+    const relido = await storageGet('config', true, null);
+    if(relido && JSON.stringify(relido.rateios) === JSON.stringify(STATE.config.rateios)){
+      confirmado = true;
+    } else {
+      await new Promise(r=>setTimeout(r,500));
+    }
+  }
+  return confirmado;
+}
+
+document.getElementById('btn-add-rateio').addEventListener('click', async (e)=>{
+  const btn = e.currentTarget;
   const descricao = document.getElementById('rat-descricao').value.trim();
   const valorTotal = parseFloat(document.getElementById('rat-valor').value)||0;
   const numParcelas = parseInt(document.getElementById('rat-parcelas').value)||0;
@@ -1413,16 +1438,28 @@ document.getElementById('btn-add-rateio').addEventListener('click', async ()=>{
     showToast('Preencha descrição, valor total, nº de parcelas e competência de início.');
     return;
   }
+  btn.disabled = true;
+  btn.textContent = 'Salvando...';
   STATE.config.rateios = STATE.config.rateios || [];
   STATE.config.rateios.push({ descricao, valorTotal, numParcelas, competenciaInicio });
-  await storageSet('config', STATE.config, true, true);
+
+  const ok = await salvarConfigVerificado();
+  btn.disabled = false;
+  btn.textContent = '+ Adicionar rateio';
+
+  if(!ok){
+    STATE.config.rateios.pop(); // desfaz localmente, já que não confirmou
+    showToast('⚠ Não consegui confirmar o salvamento do rateio na planilha. Tente novamente.');
+    return;
+  }
+
   await logAction(`Cadastrou rateio "${descricao}" de ${fmtMoney(valorTotal)} em ${numParcelas}x`);
   document.getElementById('rat-descricao').value='';
   document.getElementById('rat-valor').value='';
   document.getElementById('rat-parcelas').value='';
   renderRateios();
   renderDashboard();
-  showToast('Rateio adicionado.');
+  showToast('Rateio adicionado e confirmado.');
 });
 
 function renderConfig(){
