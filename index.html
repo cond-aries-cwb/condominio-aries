@@ -726,7 +726,7 @@ document.getElementById('btn-recuperar-pin').addEventListener('click', async (e)
     }
   }catch(err){
     console.error(err);
-    msg.textContent = '⚠ Erro ao tentar recuperar o PIN. Tente novamente.';
+    msg.textContent = '⚠ Não recebi confirmação a tempo, mas é possível que já tenha funcionado. Confira seu e-mail (e a caixa de spam) antes de tentar de novo — cada tentativa gera um PIN novo, invalidando o anterior.';
   }
   btn.disabled = false;
   btn.textContent = 'Enviar novo PIN por e-mail';
@@ -1546,6 +1546,13 @@ function renderConfig(){
   });
   const ro = isReadOnly();
   document.querySelectorAll('#view-config input').forEach(el=> el.disabled = ro);
+  // PIN e e-mail: cada perfil só edita o próprio — os outros ficam bloqueados, mesmo para quem tem acesso total
+  ['sindico','subsindico','conselho','administrador'].forEach(role=>{
+    const ehProprio = STATE.currentUser && STATE.currentUser.role === role;
+    document.getElementById('cfg-pin-'+role).disabled = ro || !ehProprio;
+    document.getElementById('cfg-email-'+role).disabled = ro || !ehProprio;
+    document.getElementById('cfg-pin-'+role).placeholder = ehProprio ? '•••••• (deixe em branco p/ não alterar)' : 'somente o próprio perfil pode alterar';
+  });
   document.getElementById('btn-salvar-config').style.display = ro ? 'none' : 'inline-block';
   renderRateios();
 }
