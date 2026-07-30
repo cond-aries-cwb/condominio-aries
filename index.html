@@ -339,7 +339,8 @@
           <div class="field"><label>Nº de parcelas</label><input id="rat-parcelas" type="number" min="1"></div>
           <div class="field"><label>Competência de início</label><input id="rat-inicio" type="month"></div>
         </div>
-        <button class="btn" id="btn-add-rateio">+ Adicionar rateio</button>
+        <button class="btn primary" id="btn-add-rateio">Confirmar Rateio</button>
+        <button class="btn" id="btn-novo-rateio">+ Novo Rateio</button>
 
         <div class="section-heading">Dados bancários (usados nos e-mails de lembrete)</div>
         <div class="field-row">
@@ -570,7 +571,7 @@ function defaultConfig(){
     nomeCondominio: "Condomínio Áries",
     numApartamentos: 20,
     numVagas: 13,
-    valorTaxaPadrao: 505,
+    valorTaxaPadrao: 455,
     competenciaAtual: "2026-05",
     saldosBase: { condominio: 0, fundoReserva: 0, rateioReforma: 0 },
     dadosBancarios: { pix: "", banco: "", agencia: "", conta: "" },
@@ -1410,6 +1411,7 @@ function renderRateios(){
     });
   }
   document.getElementById('btn-add-rateio').style.display = isReadOnly() ? 'none' : 'inline-block';
+  document.getElementById('btn-novo-rateio').style.display = isReadOnly() ? 'none' : 'inline-block';
   if(!document.getElementById('rat-inicio').value) document.getElementById('rat-inicio').value = comp;
 }
 
@@ -1428,6 +1430,15 @@ async function salvarConfigVerificado(motivoLog){
   return confirmado;
 }
 
+document.getElementById('btn-novo-rateio').addEventListener('click', ()=>{
+  document.getElementById('rat-descricao').value = '';
+  document.getElementById('rat-valor').value = '';
+  document.getElementById('rat-parcelas').value = '';
+  document.getElementById('rat-inicio').value = STATE.config.competenciaAtual;
+  document.getElementById('rat-descricao').focus();
+  showToast('Nova sessão de rateio pronta para preencher.');
+});
+
 document.getElementById('btn-add-rateio').addEventListener('click', async (e)=>{
   const btn = e.currentTarget;
   const descricao = document.getElementById('rat-descricao').value.trim();
@@ -1445,7 +1456,7 @@ document.getElementById('btn-add-rateio').addEventListener('click', async (e)=>{
 
   const ok = await salvarConfigVerificado();
   btn.disabled = false;
-  btn.textContent = '+ Adicionar rateio';
+  btn.textContent = 'Confirmar Rateio';
 
   if(!ok){
     STATE.config.rateios.pop();
