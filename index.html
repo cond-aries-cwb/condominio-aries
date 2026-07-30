@@ -535,19 +535,47 @@ const API_URL = "https://script.google.com/macros/s/AKfycbwPuK0Xec3lQryvKuFdiCIY
 const API_TOKEN = "alkl2321cond.aries";
 
 async function apiCall(action, extra){
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    headers: {'Content-Type':'text/plain;charset=utf-8'}, // evita pré-checagem CORS que o Apps Script não responde
-    body: JSON.stringify(Object.assign({action, token: API_TOKEN}, extra || {}))
-  });
-  const data = await res.json();
-  if(data && data.error) throw new Error(data.error);
-  return data;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(()=> controller.abort(), 15000);
+  try{
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {'Content-Type':'text/plain;charset=utf-8'}, // evita pré-checagem CORS que o Apps Script não responde
+      body: JSON.stringify(Object.assign({action, token: API_TOKEN}, extra || {})),
+      signal: controller.signal
+    });
+    const data = await res.json();
+    if(data && data.error) throw new Error(data.error);
+    return data;
+  }catch(e){
+    if(e.name === 'AbortError') throw new Error('A planilha demorou demais para responder (mais de 15s).');
+    throw e;
+  }finally{
+    clearTimeout(timeoutId);
+  }
+}
+
+// Leitura inicial via GET — mais rápida e confiável que POST para o carregamento da tela de login.
+async function apiCallGetAll(){
+  const controller = new AbortController();
+  const timeoutId = setTimeout(()=> controller.abort(), 8000);
+  try{
+    const url = API_URL + '?action=getAll&token=' + encodeURIComponent(API_TOKEN);
+    const res = await fetch(url, { method: 'GET', signal: controller.signal });
+    const data = await res.json();
+    if(data && data.error) throw new Error(data.error);
+    return data;
+  }catch(e){
+    if(e.name === 'AbortError') throw new Error('A planilha demorou demais para responder.');
+    throw e;
+  }finally{
+    clearTimeout(timeoutId);
+  }
 }
 
 async function storageGet(key, shared, fallback){
   try{
-    const data = await apiCall('getAll');
+    const data = await apiCallGetAll();
     if(key === 'historico-prestacao') return data.historico ?? fallback;
     const val = data[key];
     return (val === null || val === undefined) ? fallback : val;
@@ -598,7 +626,7 @@ function defaultConfig(){
 async function initData(){
   let data = {};
   try{
-    data = await apiCall('getAll');
+    data = await apiCallGetAll();
   }catch(e){
     console.error('falha ao carregar a planilha', e);
     showToast('⚠ Não consegui conectar à planilha agora. Verifique sua internet e recarregue.');
@@ -1565,32 +1593,3 @@ document.getElementById('btn-add-rateio').addEventListener('click', ()=>{
 document.getElementById('btn-add-rateio-confirma').addEventListener('click', async (e)=>{
   const btn = e.currentTarget;
   const descricao = document.getElementById('rat-descricao').value.trim();
-  const valorTotal = parseFloat(document.getElementById('rat-valor').value)||0;
-  const numParcelas = parseInt(document.getElementById('rat-parcelas').value)||0;
-  const competenciaInicio = document.getElementById('rat-inicio').value;
-
-  btn.disabled = true;
-  btn.textContent = 'Salvando...';
-  STATE.config.rateios = STATE.config.rateios || [];
-  STATE.config.rateios.push({ descricao, valorTotal, numParcelas, competenciaInicio });
-
-  const ok = await salvarConfigVerificado();
-  btn.disabled = false;
-  btn.textContent = 'Confirmar inclusão?';
-
-  if(!ok){
-    STATE.config.rateios.pop();
-    showToast('⚠ Não consegui confirmar o salvamento do rateio na planilha. Tente novamente.');
-    return;
-  }
-
-  await logAction(`Cadastrou rateio "${descricao}" de ${fmtMoney(valorTotal)} em ${numParcelas}x`);
-  fecharFormRateio();
-  renderRateios();
-  renderDashboard();
-  showToast('Rateio adicionado e confirmado.');
-});
-
-function renderConfig(){
-  const c = STATE.config;
-  document.getElementById('cfg-nome').value = c.nome
