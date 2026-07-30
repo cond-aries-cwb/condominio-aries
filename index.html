@@ -188,7 +188,21 @@
     <div class="login-error" id="login-error"></div>
     <button class="btn-primary" id="login-btn">Entrar</button>
     <div class="login-hint">PIN padrão inicial: 123456 para todos os perfis.<br>Altere em Configurações após o primeiro acesso.</div>
+    <div class="login-hint" style="margin-top:6px;"><a href="#" id="link-esqueci-pin">Esqueci meu PIN</a></div>
     <div class="login-hint" style="margin-top:6px;"><a href="#" id="link-morador">Sou morador — quero só ver a prestação de contas</a></div>
+
+    <div id="recuperar-pin-area" style="display:none;margin-top:18px;padding-top:18px;border-top:1px solid var(--line);text-align:left;">
+      <label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:6px;font-weight:600;">Qual é o seu perfil?</label>
+      <select id="rec-role" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);margin-bottom:10px;">
+        <option value="sindico">Síndico(a)</option>
+        <option value="subsindico">Subsíndico(a)</option>
+        <option value="conselho">Presidente do Conselho</option>
+        <option value="administrador">Administrador(a)</option>
+      </select>
+      <button class="btn-primary" id="btn-recuperar-pin">Enviar novo PIN por e-mail</button>
+      <div class="login-hint" id="recuperar-pin-msg" style="margin-top:10px;"></div>
+      <div class="login-hint" style="margin-top:10px;"><a href="#" id="link-voltar-login">Voltar</a></div>
+    </div>
   </div>
 </div>
 
@@ -353,19 +367,19 @@
         </div>
         <div class="section-heading">PINs de acesso por perfil (6 a 8 dígitos)</div>
         <div class="field-row">
-          <div class="field"><label>Síndico(a) — PIN</label><input id="cfg-pin-sindico" maxlength="8"></div>
+          <div class="field"><label>Síndico(a) — PIN</label><input id="cfg-pin-sindico" maxlength="8" placeholder="•••••• (deixe em branco p/ não alterar)"></div>
           <div class="field"><label>Síndico(a) — e-mail de recuperação</label><input id="cfg-email-sindico" type="email"></div>
         </div>
         <div class="field-row">
-          <div class="field"><label>Subsíndico(a) — PIN</label><input id="cfg-pin-subsindico" maxlength="8"></div>
+          <div class="field"><label>Subsíndico(a) — PIN</label><input id="cfg-pin-subsindico" maxlength="8" placeholder="•••••• (deixe em branco p/ não alterar)"></div>
           <div class="field"><label>Subsíndico(a) — e-mail de recuperação</label><input id="cfg-email-subsindico" type="email"></div>
         </div>
         <div class="field-row">
-          <div class="field"><label>Pres. Conselho — PIN</label><input id="cfg-pin-conselho" maxlength="8"></div>
+          <div class="field"><label>Pres. Conselho — PIN</label><input id="cfg-pin-conselho" maxlength="8" placeholder="•••••• (deixe em branco p/ não alterar)"></div>
           <div class="field"><label>Pres. Conselho — e-mail de recuperação</label><input id="cfg-email-conselho" type="email"></div>
         </div>
         <div class="field-row">
-          <div class="field"><label>Administrador(a) — PIN</label><input id="cfg-pin-administrador" maxlength="8"></div>
+          <div class="field"><label>Administrador(a) — PIN</label><input id="cfg-pin-administrador" maxlength="8" placeholder="•••••• (deixe em branco p/ não alterar)"></div>
           <div class="field"><label>Administrador(a) — e-mail de recuperação</label><input id="cfg-email-administrador" type="email"></div>
         </div>
         <div class="login-hint" style="text-align:left;margin-bottom:10px;">Não há envio automático de e-mail — se alguém esquecer o PIN, outro administrador pode consultar o e-mail aqui e ajudar a resetar.</div>
@@ -679,6 +693,45 @@ function enterPublicMode(){
   renderAll();
   goto('prestacao');
 }
+document.getElementById('link-esqueci-pin').addEventListener('click', (e)=>{
+  e.preventDefault();
+  document.getElementById('role-grid').style.display = 'none';
+  document.getElementById('pin-input').style.display = 'none';
+  document.getElementById('login-btn').style.display = 'none';
+  document.getElementById('recuperar-pin-area').style.display = 'block';
+  document.getElementById('recuperar-pin-msg').textContent = '';
+});
+document.getElementById('link-voltar-login').addEventListener('click', (e)=>{
+  e.preventDefault();
+  document.getElementById('role-grid').style.display = 'grid';
+  document.getElementById('pin-input').style.display = 'block';
+  document.getElementById('login-btn').style.display = 'block';
+  document.getElementById('recuperar-pin-area').style.display = 'none';
+});
+document.getElementById('btn-recuperar-pin').addEventListener('click', async (e)=>{
+  const btn = e.currentTarget;
+  const msg = document.getElementById('recuperar-pin-msg');
+  const role = document.getElementById('rec-role').value;
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+  msg.textContent = '';
+  try{
+    const r = await apiCall('resetarPin', { params: { role } });
+    if(r.ok){
+      msg.textContent = 'Um novo PIN foi enviado para o e-mail cadastrado desse perfil. Confira sua caixa de entrada.';
+    } else if(r.motivo === 'sem_email'){
+      msg.textContent = 'Não há e-mail cadastrado para esse perfil ainda. Peça a outro administrador para cadastrar um em Configurações.';
+    } else {
+      msg.textContent = 'Não foi possível enviar agora. Tente novamente em instantes.';
+    }
+  }catch(err){
+    console.error(err);
+    msg.textContent = '⚠ Erro ao tentar recuperar o PIN. Tente novamente.';
+  }
+  btn.disabled = false;
+  btn.textContent = 'Enviar novo PIN por e-mail';
+});
+
 document.getElementById('link-morador').addEventListener('click', (e)=>{
   e.preventDefault();
   try{ history.replaceState(null,'', location.pathname + '?publico=1'); }catch(err){ /* preview sandbox não permite; ok em produção publicada */ }
@@ -1488,7 +1541,7 @@ function renderConfig(){
   document.getElementById('cfg-agencia').value = c.dadosBancarios.agencia;
   document.getElementById('cfg-conta').value = c.dadosBancarios.conta;
   ['sindico','subsindico','conselho','administrador'].forEach(role=>{
-    document.getElementById('cfg-pin-'+role).value = c.pins[role].pin;
+    document.getElementById('cfg-pin-'+role).value = '';
     document.getElementById('cfg-email-'+role).value = c.pins[role].email || '';
   });
   const ro = isReadOnly();
