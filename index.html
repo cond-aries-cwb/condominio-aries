@@ -201,7 +201,7 @@
       </select>
       <button class="btn-primary" id="btn-recuperar-pin">Enviar novo PIN por e-mail</button>
       <div class="login-hint" id="recuperar-pin-msg" style="margin-top:10px;"></div>
-      <div class="login-hint" style="margin-top:10px;"><a href="#" id="link-voltar-login">Voltar</a></div>
+      <div class="login-hint" style="margin-top:10px;"><a href="#" id="link-voltar-login">Recarregar Condomínio Áries</a></div>
     </div>
   </div>
 </div>
@@ -716,10 +716,7 @@ document.getElementById('link-esqueci-pin').addEventListener('click', (e)=>{
 });
 document.getElementById('link-voltar-login').addEventListener('click', (e)=>{
   e.preventDefault();
-  document.getElementById('role-grid').style.display = 'grid';
-  document.getElementById('pin-input').style.display = 'block';
-  document.getElementById('login-btn').style.display = 'block';
-  document.getElementById('recuperar-pin-area').style.display = 'none';
+  location.reload();
 });
 document.getElementById('btn-recuperar-pin').addEventListener('click', async (e)=>{
   const btn = e.currentTarget;
