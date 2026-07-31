@@ -668,10 +668,23 @@ document.querySelectorAll('.role-btn').forEach(b=>{
 document.getElementById('login-btn').addEventListener('click', doLogin);
 document.getElementById('pin-input').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
 
-function doLogin(){
+async function doLogin(){
   const err = document.getElementById('login-error');
   if(!selectedRole){ err.textContent = 'Selecione um perfil.'; return; }
+  const btn = document.getElementById('login-btn');
   const pin = document.getElementById('pin-input').value.trim();
+  btn.disabled = true;
+  const textoOriginal = btn.textContent;
+  btn.textContent = 'Verificando...';
+  try{
+    const dadosFrescos = await apiCall('getAll');
+    if(dadosFrescos && dadosFrescos.config){ STATE.config = dadosFrescos.config; }
+  }catch(e){
+    console.error('não consegui atualizar antes do login, usando dados já carregados', e);
+  }
+  btn.disabled = false;
+  btn.textContent = textoOriginal;
+
   const expected = (STATE.config.pins[selectedRole] && STATE.config.pins[selectedRole].pin) || '123456';
   if(pin !== expected){ err.textContent = 'PIN incorreto.'; return; }
   STATE.currentUser = { role: selectedRole, label: ROLE_LABELS[selectedRole] };
