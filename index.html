@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
+<!-- saved from url=(0061)file:///C:/Users/ACER/Downloads/sgca-condominio-aries_10.html -->
+<html lang="pt-BR"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SGCA — Condomínio Áries</title>
 <style>
@@ -40,6 +40,8 @@
   .login-sub{color:var(--ink-soft);font-size:13px;margin-bottom:24px;}
   .role-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;}
   .role-btn{padding:12px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px;text-align:center;transition:.15s;}
+  .role-btn:disabled, .login-card input:disabled, .btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-primary:disabled{background:var(--ink-faint);}
   .role-btn:hover{border-color:var(--accent);}
   .role-btn.selected{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-dark);font-weight:600;}
   .login-card input[type=password]{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;margin-bottom:12px;letter-spacing:2px;}
@@ -176,7 +178,7 @@
 <!-- ============ LOGIN ============ -->
 <div id="login-screen">
   <div class="login-card">
-    <h1 id="login-condo-name">SGCA</h1>
+    <h1 id="login-condo-name">Condomínio Áries</h1>
     <div class="login-sub">Sistema de Gestão do Condomínio — selecione seu perfil</div>
     <div class="role-grid" id="role-grid">
       <button class="role-btn" data-role="sindico">Síndico(a)</button>
@@ -188,8 +190,8 @@
     <div class="login-error" id="login-error"></div>
     <button class="btn-primary" id="login-btn">Entrar</button>
     <div class="login-hint">PIN padrão inicial: 123456 para todos os perfis.<br>Altere em Configurações após o primeiro acesso.</div>
-    <div class="login-hint" style="margin-top:6px;"><a href="#" id="link-esqueci-pin">Esqueci meu PIN</a></div>
-    <div class="login-hint" style="margin-top:6px;"><a href="#" id="link-morador">Sou morador — quero só ver a prestação de contas</a></div>
+    <div class="login-hint" style="margin-top:6px;"><a href="file:///C:/Users/ACER/Downloads/sgca-condominio-aries_10.html#" id="link-esqueci-pin">Esqueci meu PIN</a></div>
+    <div class="login-hint" style="margin-top:6px;"><a href="file:///C:/Users/ACER/Downloads/sgca-condominio-aries_10.html#" id="link-morador">Sou morador — quero só ver a prestação de contas</a></div>
 
     <div id="recuperar-pin-area" style="display:none;margin-top:18px;padding-top:18px;border-top:1px solid var(--line);text-align:left;">
       <label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:6px;font-weight:600;">Qual é o seu perfil?</label>
@@ -201,7 +203,7 @@
       </select>
       <button class="btn-primary" id="btn-recuperar-pin">Enviar novo PIN por e-mail</button>
       <div class="login-hint" id="recuperar-pin-msg" style="margin-top:10px;"></div>
-      <div class="login-hint" style="margin-top:10px;"><a href="#" id="link-voltar-login">Recarregar Condomínio Áries</a></div>
+      <div class="login-hint" style="margin-top:10px;"><a href="file:///C:/Users/ACER/Downloads/sgca-condominio-aries_10.html#" id="link-voltar-login">Recarregar Condomínio Áries</a></div>
     </div>
   </div>
 </div>
@@ -382,9 +384,12 @@
           <div class="field"><label>Administrador(a) — PIN</label><input id="cfg-pin-administrador" maxlength="8" placeholder="•••••• (deixe em branco p/ não alterar)"></div>
           <div class="field"><label>Administrador(a) — e-mail de recuperação</label><input id="cfg-email-administrador" type="email"></div>
         </div>
-        <div class="login-hint" style="text-align:left;margin-bottom:10px;">Não há envio automático de e-mail — se alguém esquecer o PIN, outro administrador pode consultar o e-mail aqui e ajudar a resetar.</div>
+        <div class="login-hint" style="text-align:left;margin-bottom:10px;">Cada perfil só edita o próprio PIN/e-mail. Para redefinir o PIN de outra pessoa, use "Esqueci meu PIN" na tela de login, ou a Central de Segurança abaixo (só para Administrador).</div>
         <button class="btn primary" id="btn-salvar-config">Salvar configurações</button>
       </div>
+
+      <div id="central-seguranca-wrap"></div>
+
       <div class="section-heading">Registro de auditoria (log completo)</div>
       <div class="card" id="log-full" style="max-height:320px;overflow:auto;"></div>
     </section>
@@ -395,7 +400,7 @@
 <!-- MODALS -->
 <div class="modal-overlay" id="modal-unidade">
   <div class="modal">
-    <div class="modal-header"><h3 id="modal-unidade-title">Apartamento</h3><button class="modal-close" data-close>✕</button></div>
+    <div class="modal-header"><h3 id="modal-unidade-title">Apartamento</h3><button class="modal-close" data-close="">✕</button></div>
     <div id="modal-unidade-readonly-note"></div>
     <div class="section-heading">Morador (responsável financeiro)</div>
     <div class="field"><label>Nome</label><input id="un-morador-nome"></div>
@@ -420,10 +425,17 @@
       <div class="field"><label>Número</label><input id="un-gar-numero"></div>
     </div>
     <div class="field"><label>Tipo</label><select id="un-gar-tipo"><option value="cativa">Cativa</option><option value="rotativa">Rotativa</option></select></div>
+    <div class="section-heading">Isenção de taxa condominial</div>
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:8px;font-weight:400;">
+        <input type="checkbox" id="un-isento" style="width:auto;"> Isento(a) da taxa condominial (ex: síndico(a)/subsíndico(a) em mandato)
+      </label>
+    </div>
+    <div class="field"><label>Motivo (opcional, ajuda o próximo administrador a entender)</label><input id="un-isento-motivo" placeholder="Ex: Síndica em mandato — eleita em 03/2026"></div>
     <div class="section-heading">Observações</div>
     <div class="field"><textarea id="un-obs"></textarea></div>
     <div class="modal-actions">
-      <button class="btn" data-close>Cancelar</button>
+      <button class="btn" data-close="">Cancelar</button>
       <button class="btn primary" id="btn-salvar-unidade">Salvar</button>
     </div>
   </div>
@@ -431,7 +443,7 @@
 
 <div class="modal-overlay" id="modal-despesa">
   <div class="modal">
-    <div class="modal-header"><h3>Lançar despesa</h3><button class="modal-close" data-close>✕</button></div>
+    <div class="modal-header"><h3>Lançar despesa</h3><button class="modal-close" data-close="">✕</button></div>
     <div class="field"><label>Tipo</label><select id="desp-tipo"><option value="fixa">Fixa</option><option value="variavel">Variável</option></select></div>
     <div class="field"><label>Descrição</label><input id="desp-descricao"></div>
     <div class="field-row">
@@ -440,7 +452,7 @@
     </div>
     <div class="field"><label>Caixa de origem</label><select id="desp-caixa"><option value="condominio">Condomínio</option><option value="fundoReserva">Fundo de Reserva</option><option value="rateioReforma">Rateio de Reforma</option></select></div>
     <div class="modal-actions">
-      <button class="btn" data-close>Cancelar</button>
+      <button class="btn" data-close="">Cancelar</button>
       <button class="btn primary" id="btn-salvar-despesa">Salvar</button>
     </div>
   </div>
@@ -448,7 +460,7 @@
 
 <div class="modal-overlay" id="modal-fornecedor">
   <div class="modal">
-    <div class="modal-header"><h3>Novo fornecedor</h3><button class="modal-close" data-close>✕</button></div>
+    <div class="modal-header"><h3>Novo fornecedor</h3><button class="modal-close" data-close="">✕</button></div>
     <div class="field"><label>Nome</label><input id="forn-nome"></div>
     <div class="field"><label>Categoria / tipo de serviço</label><input id="forn-categoria" placeholder="Ex: Manutenção elétrica"></div>
     <div class="field-row">
@@ -462,7 +474,7 @@
     </div>
     <div class="field"><label>Observações</label><textarea id="forn-obs"></textarea></div>
     <div class="modal-actions">
-      <button class="btn" data-close>Cancelar</button>
+      <button class="btn" data-close="">Cancelar</button>
       <button class="btn primary" id="btn-salvar-fornecedor">Salvar</button>
     </div>
   </div>
@@ -470,14 +482,14 @@
 
 <div class="modal-overlay" id="modal-pagamento">
   <div class="modal">
-    <div class="modal-header"><h3 id="modal-pagamento-title">Registrar pagamento</h3><button class="modal-close" data-close>✕</button></div>
+    <div class="modal-header"><h3 id="modal-pagamento-title">Registrar pagamento</h3><button class="modal-close" data-close="">✕</button></div>
     <div class="field-row">
       <div class="field"><label>Valor da taxa condominial (R$)</label><input id="pg-valor-taxa" type="number" step="0.01"></div>
       <div class="field"><label>Valor do rateio de reforma (R$)</label><input id="pg-valor-rateio" type="number" step="0.01"></div>
     </div>
     <div class="field" id="pg-rateio-info" style="font-size:12px;color:var(--ink-soft);margin-top:-8px;"></div>
     <div class="field-row">
-      <div class="field"><label>Total (R$)</label><input id="pg-valor-total" type="number" step="0.01" disabled style="background:var(--accent-soft);font-weight:600;"></div>
+      <div class="field"><label>Total (R$)</label><input id="pg-valor-total" type="number" step="0.01" disabled="" style="background:var(--accent-soft);font-weight:600;"></div>
       <div class="field"><label>Data do pagamento</label><input id="pg-data" type="date"></div>
     </div>
     <div class="field"><label>Forma de pagamento</label><select id="pg-forma"><option>PIX</option><option>Transferência</option><option>Dinheiro</option><option>Boleto</option></select></div>
@@ -485,7 +497,7 @@
     <div class="modal-actions">
       <button class="btn danger" id="btn-cancelar-pagamento" style="margin-right:auto;">Cancelar este pagamento</button>
       <button class="btn danger" id="btn-cancelar-pagamento-confirma" style="margin-right:auto;display:none;">Confirmar cancelamento?</button>
-      <button class="btn" data-close>Fechar</button>
+      <button class="btn" data-close="">Fechar</button>
       <button class="btn primary" id="btn-confirmar-pagamento">Confirmar pagamento</button>
       <button class="btn primary" id="btn-confirmar-pagamento-etapa2" style="display:none;">Confirmar?</button>
     </div>
@@ -539,14 +551,24 @@ const API_URL = "https://script.google.com/macros/s/AKfycbwPuK0Xec3lQryvKuFdiCIY
 const API_TOKEN = "alkl2321cond.aries";
 
 async function apiCall(action, extra){
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    headers: {'Content-Type':'text/plain;charset=utf-8'}, // evita pré-checagem CORS que o Apps Script não responde
-    body: JSON.stringify(Object.assign({action, token: API_TOKEN}, extra || {}))
-  });
-  const data = await res.json();
-  if(data && data.error) throw new Error(data.error);
-  return data;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(()=> controller.abort(), 15000);
+  try{
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {'Content-Type':'text/plain;charset=utf-8'}, // evita pré-checagem CORS que o Apps Script não responde
+      body: JSON.stringify(Object.assign({action, token: API_TOKEN}, extra || {})),
+      signal: controller.signal
+    });
+    const data = await res.json();
+    if(data && data.error) throw new Error(data.error);
+    return data;
+  }catch(e){
+    if(e.name === 'AbortError') throw new Error('A planilha demorou demais para responder (mais de 15s).');
+    throw e;
+  }finally{
+    clearTimeout(timeoutId);
+  }
 }
 
 async function storageGet(key, shared, fallback){
@@ -673,17 +695,23 @@ async function doLogin(){
   if(!selectedRole){ err.textContent = 'Selecione um perfil.'; return; }
   const btn = document.getElementById('login-btn');
   const pin = document.getElementById('pin-input').value.trim();
-  btn.disabled = true;
   const textoOriginal = btn.textContent;
-  btn.textContent = 'Verificando...';
-  try{
-    const dadosFrescos = await apiCall('getAll');
-    if(dadosFrescos && dadosFrescos.config){ STATE.config = dadosFrescos.config; }
-  }catch(e){
-    console.error('não consegui atualizar antes do login, usando dados já carregados', e);
+
+  const bateComConfigAtual = () => (STATE.config.pins[selectedRole] && STATE.config.pins[selectedRole].pin) === pin;
+
+  if(!bateComConfigAtual()){
+    // Não bateu com o que já estava carregado — busca uma vez mais fresco, caso o PIN tenha sido trocado agora há pouco
+    btn.disabled = true;
+    btn.textContent = 'Verificando PIN mais recente...';
+    try{
+      const dadosFrescos = await apiCall('getAll');
+      if(dadosFrescos && dadosFrescos.config){ STATE.config = dadosFrescos.config; }
+    }catch(e){
+      console.error('não consegui atualizar antes do login, usando dados já carregados', e);
+    }
+    btn.disabled = false;
+    btn.textContent = textoOriginal;
   }
-  btn.disabled = false;
-  btn.textContent = textoOriginal;
 
   const expected = (STATE.config.pins[selectedRole] && STATE.config.pins[selectedRole].pin) || '123456';
   if(pin !== expected){ err.textContent = 'PIN incorreto.'; return; }
@@ -796,6 +824,12 @@ function rateiosAtivosNaCompetencia(comp){
     return comp >= r.competenciaInicio && comp < fim;
   });
 }
+function taxaDevidaApto(apto){
+  const u = STATE.unidades[apto];
+  if(u && u.isentoTaxa) return 0;
+  return STATE.config.valorTaxaPadrao;
+}
+
 function parcelaRateioPorApto(comp){
   const ativos = rateiosAtivosNaCompetencia(comp);
   const numApt = STATE.config.numApartamentos || 1;
@@ -836,9 +870,12 @@ function renderDashboard(){
   document.getElementById('stat-saldo-rateio').textContent = fmtMoney(s.rateioReforma);
 
   const comp = STATE.config.competenciaAtual;
-  let pagos=0, pendentes=0;
+  const rateioAtualApto = parcelaRateioPorApto(comp);
+  let pagos=0, pendentes=0, isentos=0;
   for(let i=1;i<=STATE.config.numApartamentos;i++){
     const key = comp+'_'+i;
+    const u = STATE.unidades[i];
+    if(u && u.isentoTaxa && rateioAtualApto <= 0){ isentos++; continue; }
     if(STATE.pagamentos[key] && STATE.pagamentos[key].pago) pagos++;
     else pendentes++;
   }
@@ -880,18 +917,20 @@ function renderUnidades(){
   const grid = document.getElementById('unit-grid');
   grid.innerHTML = '';
   const comp = STATE.config.competenciaAtual;
+  const rateioAtualApto = parcelaRateioPorApto(comp);
   for(let i=1;i<=STATE.config.numApartamentos;i++){
     const u = STATE.unidades[i] || {};
     const morador = u.morador && u.morador.nome ? u.morador.nome : null;
     const pagamento = STATE.pagamentos[comp+'_'+i];
     let statusClass = 'vazio', statusText = 'Sem cadastro';
     if(morador){
-      if(pagamento && pagamento.pago){ statusClass='pago'; statusText='🟢 Em dia'; }
+      if(u.isentoTaxa && rateioAtualApto <= 0){ statusClass='pago'; statusText='★ Isento'; }
+      else if(pagamento && pagamento.pago){ statusClass='pago'; statusText='🟢 Em dia'; }
       else { statusClass='pendente'; statusText='🔴 Pendente'; }
     }
     const card = document.createElement('div');
     card.className = 'unit-card '+statusClass;
-    card.innerHTML = `<div class="apto-num">Apto ${i}</div><div class="morador-nome">${morador || 'Não cadastrado'}</div><div class="status-tag">${statusText}</div>`;
+    card.innerHTML = `<div class="apto-num">Apto ${i}${u.isentoTaxa?' <span style="color:var(--gold);font-size:14px;" title="Isento">★</span>':''}</div><div class="morador-nome">${morador || 'Não cadastrado'}</div><div class="status-tag">${statusText}</div>`;
     card.addEventListener('click', ()=> openUnidadeModal(i));
     grid.appendChild(card);
   }
@@ -913,6 +952,8 @@ function openUnidadeModal(apto){
   document.getElementById('un-gar-possui').value = (u.garagem&&u.garagem.possui)||'nao';
   document.getElementById('un-gar-numero').value = (u.garagem&&u.garagem.numero)||'';
   document.getElementById('un-gar-tipo').value = (u.garagem&&u.garagem.tipo)||'cativa';
+  document.getElementById('un-isento').checked = !!u.isentoTaxa;
+  document.getElementById('un-isento-motivo').value = u.isentoMotivo || '';
   document.getElementById('un-obs').value = u.observacoes||'';
 
   const ro = isReadOnly();
@@ -926,6 +967,8 @@ function openUnidadeModal(apto){
 document.getElementById('btn-salvar-unidade').addEventListener('click', async ()=>{
   if(isReadOnly()) return;
   const apto = STATE.editingUnidade;
+  const isentoAntes = !!(STATE.unidades[apto] && STATE.unidades[apto].isentoTaxa);
+  const isentoAgora = document.getElementById('un-isento').checked;
   STATE.unidades[apto] = {
     morador: {
       nome: document.getElementById('un-morador-nome').value,
@@ -945,9 +988,14 @@ document.getElementById('btn-salvar-unidade').addEventListener('click', async ()
       numero: document.getElementById('un-gar-numero').value,
       tipo: document.getElementById('un-gar-tipo').value,
     },
+    isentoTaxa: isentoAgora,
+    isentoMotivo: document.getElementById('un-isento-motivo').value,
     observacoes: document.getElementById('un-obs').value
   };
   await storageSet('unidades', STATE.unidades, true);
+  if(isentoAgora !== isentoAntes){
+    await logAction(`${isentoAgora ? 'Marcou' : 'Removeu'} a isenção de taxa condominial do Apto ${apto}${document.getElementById('un-isento-motivo').value ? ' — '+document.getElementById('un-isento-motivo').value : ''}`);
+  }
   await logAction(`Atualizou a ficha do Apto ${apto}`);
   closeModal('modal-unidade');
   renderUnidades();
@@ -972,11 +1020,14 @@ function renderPagamento(){
     const morador = (u.morador && u.morador.nome) || '—';
     const email = u.morador && u.morador.email;
     const pagamento = STATE.pagamentos[comp+'_'+i];
-    const valorEsperado = STATE.config.valorTaxaPadrao + rateioApto;
+    const isento = !!u.isentoTaxa;
+    const valorEsperado = taxaDevidaApto(i) + rateioApto;
     const pago = pagamento && pagamento.pago;
     const tr = document.createElement('tr');
     let btnLembrar = '';
-    if(!pago && !isReadOnly()){
+    if(isento && rateioApto <= 0){
+      btnLembrar = `<span style="color:var(--ink-faint);font-size:11.5px;">isento</span>`;
+    } else if(!pago && !isReadOnly()){
       if(!email){
         btnLembrar = `<span style="color:var(--ink-faint);font-size:11.5px;">sem e-mail</span>`;
       } else if(!liberado){
@@ -985,9 +1036,13 @@ function renderPagamento(){
         btnLembrar = `<button class="btn" data-lembrar="${i}">Lembrar</button><button class="btn" data-lembrar-confirma="${i}" style="display:none;">Confirmar envio?</button>`;
       }
     }
-    tr.innerHTML = `<td>${i}</td><td>${morador}</td><td class="num">${fmtMoney(valorEsperado)}</td>
-      <td>${pago ? '<span class="badge ok">Pago</span>' : '<span class="badge no">Pendente</span>'}</td>
-      <td>${isReadOnly() ? '' : `<button class="btn" data-apto="${i}">${pago?'Editar':'Registrar'}</button>`}</td>
+    let statusBadge;
+    if(isento && rateioApto <= 0) statusBadge = '<span class="badge ok">Isento</span>';
+    else if(pago) statusBadge = '<span class="badge ok">Pago</span>';
+    else statusBadge = '<span class="badge no">Pendente</span>';
+    tr.innerHTML = `<td>${i}${isento?' <span title="Isento da taxa condominial" style="color:var(--gold);">★</span>':''}</td><td>${morador}</td><td class="num">${fmtMoney(valorEsperado)}</td>
+      <td>${statusBadge}</td>
+      <td>${(isReadOnly() || (isento && rateioApto<=0)) ? '' : `<button class="btn" data-apto="${i}">${pago?'Editar':'Registrar'}</button>`}</td>
       <td>${btnLembrar}</td>`;
     tbody.appendChild(tr);
   }
@@ -1011,7 +1066,7 @@ async function enviarLembreteIndividual(apto, btn){
   const comp = STATE.config.competenciaAtual;
   const u = STATE.unidades[apto] || {};
   const rateioApto = parcelaRateioPorApto(comp);
-  const valorEsperado = STATE.config.valorTaxaPadrao + rateioApto;
+  const valorEsperado = taxaDevidaApto(apto) + rateioApto;
   try{
     const r = await apiCall('enviarLembretes', { params: {
       lista: [{ apto, nome: u.morador.nome, email: u.morador.email, valor: valorEsperado }],
@@ -1050,7 +1105,7 @@ function openPagamentoModal(apto){
   document.getElementById('modal-pagamento-title').textContent = `Registrar pagamento — Apto ${apto}`;
   const rateioSugerido = parcelaRateioPorApto(comp);
   const valorTaxa = (pagamento.valorTaxa !== undefined) ? pagamento.valorTaxa
-    : (pagamento.valorPago !== undefined ? pagamento.valorPago : STATE.config.valorTaxaPadrao);
+    : (pagamento.valorPago !== undefined ? pagamento.valorPago : taxaDevidaApto(apto));
   const valorRateio = (pagamento.valorRateio !== undefined) ? pagamento.valorRateio : rateioSugerido;
   document.getElementById('pg-valor-taxa').value = valorTaxa;
   document.getElementById('pg-valor-rateio').value = valorRateio;
@@ -1059,6 +1114,10 @@ function openPagamentoModal(apto){
   document.getElementById('pg-rateio-info').textContent = ativos.length
     ? ativos.map(r=>`${r.descricao}: parcela ${numeroParcelaAtual(r,comp)}/${r.numParcelas}`).join(' · ')
     : 'Nenhum rateio de reforma ativo nesta competência.';
+  const u = STATE.unidades[apto] || {};
+  if(u.isentoTaxa){
+    document.getElementById('pg-rateio-info').innerHTML += `<br><span style="color:var(--gold);">★ Este apartamento é isento da taxa condominial${u.isentoMotivo ? ' — '+u.isentoMotivo : ''}.</span>`;
+  }
   document.getElementById('pg-data').value = pagamento.dataPagamento || new Date().toISOString().slice(0,10);
   document.getElementById('pg-forma').value = pagamento.forma || 'PIX';
   const btnCancelar = document.getElementById('btn-cancelar-pagamento');
@@ -1071,7 +1130,6 @@ function openPagamentoModal(apto){
   btnConfirmarEtapa2.style.display = 'none';
 
   const reciboArea = document.getElementById('pg-recibo-area');
-  const u = STATE.unidades[apto] || {};
   const email = u.morador && u.morador.email;
   if(pagamento.pago && !isReadOnly()){
     reciboArea.innerHTML = email
@@ -1189,7 +1247,7 @@ document.getElementById('btn-confirmar-pagamento-etapa2').addEventListener('clic
 
   // Recibo automático — só quando o valor cobre taxa integral + rateio devido (se houver)
   const rateioDevido = parcelaRateioPorApto(comp);
-  const pagouIntegral = Math.abs(valorTaxa - STATE.config.valorTaxaPadrao) < 0.01 && Math.abs(valorRateio - rateioDevido) < 0.01;
+  const pagouIntegral = Math.abs(valorTaxa - taxaDevidaApto(apto)) < 0.01 && Math.abs(valorRateio - rateioDevido) < 0.01;
   const u = STATE.unidades[apto] || {};
   if(pagouIntegral && u.morador && u.morador.email){
     try{
@@ -1480,6 +1538,16 @@ function renderRateios(){
 
 // Salva o config atual e confere de verdade se persistiu, comparando um trecho relevante.
 async function salvarConfigVerificado(motivoLog){
+  // Busca a versão mais recente antes de salvar, para não apagar mudanças feitas por outra pessoa
+  // enquanto esta tela estava aberta — só aplica por cima a alteração de rateios feita agora.
+  let base = STATE.config;
+  try{
+    const fresco = await apiCall('getAll');
+    if(fresco && fresco.config){ base = fresco.config; base.rateios = STATE.config.rateios; }
+  }catch(err){
+    console.error('não consegui buscar a versão mais recente antes de salvar rateios', err);
+  }
+  STATE.config = base;
   await storageSet('config', STATE.config, true, true);
   let confirmado = false;
   for(let tentativa=0; tentativa<3 && !confirmado; tentativa++){
@@ -1536,6 +1604,60 @@ document.getElementById('btn-add-rateio').addEventListener('click', async (e)=>{
   showToast('Rateio adicionado e confirmado.');
 });
 
+function renderCentralSeguranca(){
+  const wrap = document.getElementById('central-seguranca-wrap');
+  if(!STATE.currentUser || STATE.currentUser.role !== 'administrador'){ wrap.innerHTML = ''; return; }
+  const outrosRoles = ['sindico','subsindico','conselho'];
+  wrap.innerHTML = `
+    <div class="section-heading">Central de Segurança (só Administrador)</div>
+    <div class="card" style="max-width:520px;margin-bottom:22px;">
+      <div class="login-hint" style="text-align:left;margin-bottom:14px;">Como Administrador, você pode enviar um PIN novo para qualquer outro perfil, direto para o e-mail já cadastrado dele.</div>
+      ${outrosRoles.map(role=>`
+        <div class="flex-between" style="padding:8px 0;border-bottom:1px solid var(--line);">
+          <div><b>${ROLE_LABELS[role]}</b><div style="font-size:11.5px;color:var(--ink-faint);">${STATE.config.pins[role].email || 'sem e-mail cadastrado'}</div></div>
+          <div>
+            <button class="btn" data-central-reset="${role}">Enviar novo PIN</button>
+            <button class="btn primary" data-central-reset-confirma="${role}" style="display:none;">Confirmar envio?</button>
+          </div>
+        </div>
+      `).join('')}
+      <div class="login-hint" id="central-seguranca-msg" style="margin-top:10px;"></div>
+    </div>
+  `;
+  wrap.querySelectorAll('button[data-central-reset]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      b.style.display = 'none';
+      wrap.querySelector(`button[data-central-reset-confirma="${b.dataset.centralReset}"]`).style.display = 'inline-block';
+    });
+  });
+  wrap.querySelectorAll('button[data-central-reset-confirma]').forEach(b=>{
+    b.addEventListener('click', async (e)=>{
+      const btn = e.currentTarget;
+      const role = btn.dataset.centralResetConfirma;
+      const msg = document.getElementById('central-seguranca-msg');
+      btn.disabled = true;
+      btn.textContent = 'Enviando...';
+      msg.textContent = '';
+      try{
+        const r = await apiCall('resetarPin', { params: { role } });
+        if(r.ok){
+          msg.textContent = `Novo PIN enviado para o e-mail cadastrado de ${ROLE_LABELS[role]}.`;
+          await logAction(`Enviou um novo PIN para o perfil ${ROLE_LABELS[role]} (Central de Segurança)`);
+        } else if(r.motivo === 'sem_email'){
+          msg.textContent = `${ROLE_LABELS[role]} não tem e-mail cadastrado ainda. Peça para essa pessoa cadastrar o próprio e-mail em Configurações primeiro.`;
+        } else {
+          msg.textContent = 'Não recebi confirmação a tempo — pode já ter funcionado. Confira o e-mail antes de tentar de novo.';
+        }
+      }catch(err){
+        console.error(err);
+        msg.textContent = '⚠ Não recebi confirmação a tempo — pode já ter funcionado. Confira o e-mail antes de tentar de novo.';
+      }
+      btn.disabled = false;
+      btn.textContent = 'Confirmar envio?';
+    });
+  });
+}
+
 function renderConfig(){
   const c = STATE.config;
   document.getElementById('cfg-nome').value = c.nomeCondominio;
@@ -1565,6 +1687,7 @@ function renderConfig(){
   });
   document.getElementById('btn-salvar-config').style.display = ro ? 'none' : 'inline-block';
   renderRateios();
+  renderCentralSeguranca();
 }
 document.getElementById('btn-salvar-config').addEventListener('click', async (e)=>{
   const btn = e.currentTarget;
@@ -1582,7 +1705,16 @@ document.getElementById('btn-salvar-config').addEventListener('click', async (e)
   btn.disabled = true;
   btn.textContent = 'Salvando...';
 
-  const c = STATE.config;
+  // Busca a versão mais recente da planilha antes de sobrescrever — evita apagar mudanças
+  // feitas por outra pessoa (ou pelo "Esqueci meu PIN") entre o carregamento da tela e agora.
+  let c = STATE.config;
+  try{
+    const fresco = await apiCall('getAll');
+    if(fresco && fresco.config) c = fresco.config;
+  }catch(err){
+    console.error('não consegui buscar a versão mais recente antes de salvar, usando a já carregada', err);
+  }
+
   c.nomeCondominio = document.getElementById('cfg-nome').value;
   c.numApartamentos = parseInt(document.getElementById('cfg-numapt').value)||c.numApartamentos;
   c.numVagas = parseInt(document.getElementById('cfg-numvagas').value)||c.numVagas;
@@ -1598,7 +1730,8 @@ document.getElementById('btn-salvar-config').addEventListener('click', async (e)
   roles.forEach(role=>{
     const pinVal = document.getElementById('cfg-pin-'+role).value.trim();
     c.pins[role].pin = pinVal || c.pins[role].pin;
-    c.pins[role].email = document.getElementById('cfg-email-'+role).value.trim();
+    const novoEmail = document.getElementById('cfg-email-'+role).value.trim();
+    c.pins[role].email = novoEmail || c.pins[role].email;
   });
 
   await storageSet('config', c, true, true);
@@ -1626,6 +1759,7 @@ document.getElementById('btn-salvar-config').addEventListener('click', async (e)
   await logAction('Atualizou as configurações do sistema');
   document.getElementById('topbar-condo-name').textContent = c.nomeCondominio;
   document.getElementById('competencia-pill').textContent = 'Competência: ' + c.competenciaAtual;
+  STATE.config = c;
   renderAll();
   showToast('Configurações salvas e confirmadas.');
 });
@@ -1678,11 +1812,20 @@ function renderAll(){
 }
 
 initData().then(()=>{
+  document.querySelectorAll('.role-btn').forEach(b=> b.disabled = false);
+  document.getElementById('pin-input').disabled = false;
+  document.getElementById('login-btn').disabled = false;
+  document.getElementById('login-btn').textContent = 'Entrar';
+
   const params = new URLSearchParams(location.search);
   if(params.get('publico') === '1'){
     enterPublicMode();
   }
+}).catch((e)=>{
+  console.error('Falha crítica ao iniciar', e);
+  document.getElementById('login-btn').textContent = 'Erro ao carregar — recarregue a página';
 });
 </script>
-</body>
-</html>
+
+
+</body></html>
