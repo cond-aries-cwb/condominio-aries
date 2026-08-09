@@ -338,7 +338,11 @@
         </div>
         <div class="field-row">
           <div class="field"><label>Valor padrão da taxa (R$)</label><input id="cfg-valortaxa" type="number" step="0.01"></div>
+          <div class="field"><label>Valor padrão do Fundo de Reserva (R$)</label><input id="cfg-fundoreserva" type="number" step="0.01"></div>
+        </div>
+        <div class="field-row">
           <div class="field"><label>Competência atual</label><input id="cfg-competencia" type="month"></div>
+          <div class="field"></div>
         </div>
         <div class="section-heading">Saldo base (informe manualmente, conforme extrato bancário na data em que começou a usar o sistema)</div>
         <div class="field-row">
@@ -349,16 +353,20 @@
         <div class="login-hint" style="text-align:left;margin-bottom:10px;">O Dashboard soma automaticamente os pagamentos recebidos e subtrai as despesas lançadas a partir deste valor base — você não precisa (e não deve) editar esse número manualmente depois, exceto para corrigir o ponto de partida.</div>
         <div class="section-heading">Rateios de reforma / despesas extraordinárias</div>
         <div id="rateios-lista"></div>
-        <div class="field-row">
-          <div class="field"><label>Descrição (motivo)</label><input id="rat-descricao" placeholder="Ex: Portões para lixeira"></div>
-          <div class="field"><label>Valor total (R$)</label><input id="rat-valor" type="number" step="0.01"></div>
+        <div class="login-hint" style="text-align:left;margin-bottom:8px;">Cobradas apenas dos proprietários. Escolha uma categoria para lançar um novo custo:</div>
+        <div class="quick-actions" id="rateio-categoria-botoes" style="margin-bottom:14px;"></div>
+        <div id="rateio-form-area" style="display:none;">
+          <div class="field-row">
+            <div class="field"><label id="rat-descricao-label">Descrição (motivo)</label><input id="rat-descricao" placeholder="Ex: Portões para lixeira"></div>
+            <div class="field"><label>Valor total (R$)</label><input id="rat-valor" type="number" step="0.01"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Nº de parcelas</label><input id="rat-parcelas" type="number" min="1"></div>
+            <div class="field"><label>Competência de início</label><input id="rat-inicio" type="month"></div>
+          </div>
+          <button class="btn primary" id="btn-add-rateio">Confirmar Rateio</button>
+          <button class="btn" id="btn-cancelar-rateio">Cancelar</button>
         </div>
-        <div class="field-row">
-          <div class="field"><label>Nº de parcelas</label><input id="rat-parcelas" type="number" min="1"></div>
-          <div class="field"><label>Competência de início</label><input id="rat-inicio" type="month"></div>
-        </div>
-        <button class="btn primary" id="btn-add-rateio">Confirmar Rateio</button>
-        <button class="btn" id="btn-novo-rateio">+ Novo Rateio</button>
 
         <div class="section-heading">Dados bancários (usados nos e-mails de lembrete)</div>
         <div class="field-row">
@@ -411,6 +419,13 @@
     <div id="modal-unidade-readonly-note"></div>
     <div class="section-heading">Morador (responsável financeiro)</div>
     <div class="field"><label>Nome</label><input id="un-morador-nome"></div>
+    <div class="field">
+      <label>O(a) morador(a) é proprietário(a)?</label>
+      <div style="display:flex;gap:16px;margin-top:6px;">
+        <label style="display:flex;align-items:center;gap:6px;font-weight:400;"><input type="radio" name="un-eh-prop" id="un-eh-prop-sim" value="sim" style="width:auto;"> Sim</label>
+        <label style="display:flex;align-items:center;gap:6px;font-weight:400;"><input type="radio" name="un-eh-prop" id="un-eh-prop-nao" value="nao" style="width:auto;"> Não</label>
+      </div>
+    </div>
     <div class="field-row">
       <div class="field"><label>Telefone</label><input id="un-morador-tel"></div>
       <div class="field"><label>WhatsApp</label><input id="un-morador-whats"></div>
@@ -421,13 +436,15 @@
       <div class="field"><label>Data de entrada</label><input id="un-morador-entrada" type="date"></div>
       <div class="field"><label>Data de saída</label><input id="un-morador-saida" type="date"></div>
     </div>
-    <div class="section-heading">Proprietário</div>
-    <div class="field"><label>Nome</label><input id="un-prop-nome"></div>
-    <div class="field-row">
-      <div class="field"><label>Telefone</label><input id="un-prop-tel"></div>
-      <div class="field"><label>E-mail</label><input id="un-prop-email"></div>
+    <div id="bloco-proprietario">
+      <div class="section-heading">Proprietário</div>
+      <div class="field"><label>Nome</label><input id="un-prop-nome"></div>
+      <div class="field-row">
+        <div class="field"><label>Telefone</label><input id="un-prop-tel"></div>
+        <div class="field"><label>E-mail</label><input id="un-prop-email"></div>
+      </div>
+      <div class="field"><label>CPF</label><input id="un-prop-cpf" placeholder="000.000.000-00"></div>
     </div>
-    <div class="field"><label>CPF</label><input id="un-prop-cpf" placeholder="000.000.000-00"></div>
     <div class="section-heading">Garagem</div>
     <div class="field-row">
       <div class="field"><label>Possui garagem?</label><select id="un-gar-possui"><option value="nao">Não</option><option value="sim">Sim</option></select></div>
@@ -538,6 +555,12 @@ const ROLE_LABELS = {
   conselho: "Presidente do Conselho",
   administrador: "Administrador(a)"
 };
+const CATEGORIAS_RATEIO = [
+  "Fundo de obras",
+  "Reformas estruturais e benfeitorias",
+  "Pintura de fachada e esquadrias externas",
+  "Instalação/manutenção de equipamentos (incêndio ou esporte)"
+];
 
 function isReadOnly(){ return STATE.currentUser && (STATE.currentUser.role === 'conselho' || STATE.currentUser.role === 'publico'); }
 function isPublicMode(){ return STATE.currentUser && STATE.currentUser.role === 'publico'; }
@@ -617,6 +640,7 @@ function defaultConfig(){
     numApartamentos: 20,
     numVagas: 13,
     valorTaxaPadrao: 455,
+    valorFundoReservaPadrao: 0,
     competenciaAtual: "2026-05",
     saldosBase: { condominio: 0, fundoReserva: 0, rateioReforma: 0 },
     dadosBancarios: { pix: "", banco: "", agencia: "", conta: "" },
@@ -651,6 +675,9 @@ async function initData(){
   }
   if(!STATE.config.rateios){
     STATE.config.rateios = [];
+  }
+if(STATE.config.valorFundoReservaPadrao === undefined){
+    STATE.config.valorFundoReservaPadrao = 0;
   }
   if(STATE.config.pins.sindico && typeof STATE.config.pins.sindico === 'string'){
     Object.keys(STATE.config.pins).forEach(role=>{
@@ -962,6 +989,10 @@ function openUnidadeModal(apto){
   const u = STATE.unidades[apto] || {morador:{}, proprietario:{}, garagem:{}, observacoes:''};
   document.getElementById('modal-unidade-title').textContent = 'Apartamento ' + apto;
   document.getElementById('un-morador-nome').value = (u.morador&&u.morador.nome)||'';
+const ehProp = !!u.moradorEhProprietario;
+  document.getElementById('un-eh-prop-sim').checked = ehProp;
+  document.getElementById('un-eh-prop-nao').checked = !ehProp;
+  document.getElementById('bloco-proprietario').style.display = ehProp ? 'none' : 'block';
   document.getElementById('un-morador-tel').value = (u.morador&&u.morador.telefone)||'';
   document.getElementById('un-morador-whats').value = (u.morador&&u.morador.whatsapp)||'';
   document.getElementById('un-morador-email').value = (u.morador&&u.morador.email)||'';
@@ -992,7 +1023,9 @@ document.getElementById('btn-salvar-unidade').addEventListener('click', async ()
   const apto = STATE.editingUnidade;
   const isentoAntes = !!(STATE.unidades[apto] && STATE.unidades[apto].isentoTaxa);
   const isentoAgora = document.getElementById('un-isento').checked;
+  const ehProp = document.getElementById('un-eh-prop-sim').checked;
   STATE.unidades[apto] = {
+    moradorEhProprietario: ehProp,
     morador: {
       nome: document.getElementById('un-morador-nome').value,
       telefone: document.getElementById('un-morador-tel').value,
@@ -1083,6 +1116,11 @@ function renderPagamento(){
   tbody.querySelectorAll('button[data-lembrar-confirma]').forEach(b=>{
     b.addEventListener('click', (e)=> enviarLembreteIndividual(parseInt(b.dataset.lembrarConfirma), e.currentTarget));
   });
+document.querySelectorAll('input[name="un-eh-prop"]').forEach(r=>{
+  r.addEventListener('change', ()=>{
+    document.getElementById('bloco-proprietario').style.display = document.getElementById('un-eh-prop-sim').checked ? 'none' : 'block';
+  });
+});
 }
 
 async function enviarLembreteIndividual(apto, btn){
@@ -1547,7 +1585,7 @@ function renderRateios(){
         STATE.config.rateios.splice(i,1);
         const ok = await salvarConfigVerificado('rateios');
         if(!ok){
-          STATE.config.rateios.splice(i,0,removido); // desfaz localmente
+          STATE.config.rateios.splice(i,0,removido);
           showToast('⚠ Não consegui confirmar a remoção. Tente novamente.');
           renderRateios();
           return;
@@ -1559,42 +1597,33 @@ function renderRateios(){
       });
     });
   }
-  document.getElementById('btn-add-rateio').style.display = isReadOnly() ? 'none' : 'inline-block';
-  document.getElementById('btn-novo-rateio').style.display = isReadOnly() ? 'none' : 'inline-block';
+
+  const botoesWrap = document.getElementById('rateio-categoria-botoes');
+  const opcoes = [...CATEGORIAS_RATEIO, 'Outras'];
+  botoesWrap.innerHTML = isReadOnly() ? '' : opcoes.map(c=> `<button class="btn" data-rat-cat="${c}" style="min-width:auto;flex:0 1 auto;">${c}</button>`).join('');
+  botoesWrap.querySelectorAll('button[data-rat-cat]').forEach(b=>{
+    b.addEventListener('click', ()=> abrirFormRateio(b.dataset.ratCat));
+  });
+
   if(!document.getElementById('rat-inicio').value) document.getElementById('rat-inicio').value = comp;
 }
 
-// Salva o config atual e confere de verdade se persistiu, comparando um trecho relevante.
-async function salvarConfigVerificado(motivoLog){
-  // Busca a versão mais recente antes de salvar, para não apagar mudanças feitas por outra pessoa
-  // enquanto esta tela estava aberta — só aplica por cima a alteração de rateios feita agora.
-  let base = STATE.config;
-  try{
-    const fresco = await apiCall('getAll');
-    if(fresco && fresco.config){ base = fresco.config; base.rateios = STATE.config.rateios; }
-  }catch(err){
-    console.error('não consegui buscar a versão mais recente antes de salvar rateios', err);
+function abrirFormRateio(categoria){
+  document.getElementById('rateio-form-area').style.display = 'block';
+  const descInput = document.getElementById('rat-descricao');
+  if(categoria === 'Outras'){
+    descInput.value = '';
+    descInput.disabled = false;
+    descInput.placeholder = 'Ex: Portões para lixeira';
+  } else {
+    descInput.value = categoria;
+    descInput.disabled = true;
   }
-  STATE.config = base;
-  await storageSet('config', STATE.config, true, true);
-  let confirmado = false;
-  for(let tentativa=0; tentativa<3 && !confirmado; tentativa++){
-    const relido = await storageGet('config', true, null);
-    if(relido && JSON.stringify(relido.rateios) === JSON.stringify(STATE.config.rateios)){
-      confirmado = true;
-    } else {
-      await new Promise(r=>setTimeout(r,500));
-    }
-  }
-  return confirmado;
-}
-
-document.getElementById('btn-novo-rateio').addEventListener('click', ()=>{
-  document.getElementById('rat-descricao').value = '';
   document.getElementById('rat-valor').value = '';
   document.getElementById('rat-parcelas').value = '';
   document.getElementById('rat-inicio').value = STATE.config.competenciaAtual;
-  document.getElementById('rat-descricao').focus();
+  document.getElementById('rat-valor').focus();
+}
   showToast('Nova sessão de rateio pronta para preencher.');
 });
 
@@ -1692,6 +1721,7 @@ function renderConfig(){
   document.getElementById('cfg-numapt').value = c.numApartamentos;
   document.getElementById('cfg-numvagas').value = c.numVagas;
   document.getElementById('cfg-valortaxa').value = c.valorTaxaPadrao;
+document.getElementById('cfg-fundoreserva').value = c.valorFundoReservaPadrao || 0;
   document.getElementById('cfg-competencia').value = c.competenciaAtual;
   document.getElementById('cfg-saldo-condo').value = c.saldosBase.condominio;
   document.getElementById('cfg-saldo-fundo').value = c.saldosBase.fundoReserva;
@@ -1747,6 +1777,7 @@ document.getElementById('btn-salvar-config').addEventListener('click', async (e)
   c.numApartamentos = parseInt(document.getElementById('cfg-numapt').value)||c.numApartamentos;
   c.numVagas = parseInt(document.getElementById('cfg-numvagas').value)||c.numVagas;
   c.valorTaxaPadrao = parseFloat(document.getElementById('cfg-valortaxa').value)||c.valorTaxaPadrao;
+document.getElementById('cfg-fundoreserva').value = c.valorFundoReservaPadrao || 0;
   c.competenciaAtual = document.getElementById('cfg-competencia').value || c.competenciaAtual;
   c.saldosBase.condominio = parseFloat(document.getElementById('cfg-saldo-condo').value)||0;
   c.saldosBase.fundoReserva = parseFloat(document.getElementById('cfg-saldo-fundo').value)||0;
