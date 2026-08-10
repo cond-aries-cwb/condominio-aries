@@ -1387,7 +1387,7 @@ function renderPrestacaoSelect(){
   optAtual.textContent = STATE.config.competenciaAtual + ' (atual)';
   sel.appendChild(optAtual);
   sel.value = 'atual';
-  sel.addEventListener('change', renderPrestacaoContent);
+  sel.onchange = renderPrestacaoContent;
 }
 function renderPrestacaoContent(){
   const sel = document.getElementById('pc-competencia');
@@ -1610,7 +1610,9 @@ function renderRateios(){
 
 function abrirFormRateio(categoria){
   document.getElementById('rateio-form-area').style.display = 'block';
+
   const descInput = document.getElementById('rat-descricao');
+
   if(categoria === 'Outras'){
     descInput.value = '';
     descInput.disabled = false;
@@ -1619,14 +1621,14 @@ function abrirFormRateio(categoria){
     descInput.value = categoria;
     descInput.disabled = true;
   }
+
   document.getElementById('rat-valor').value = '';
   document.getElementById('rat-parcelas').value = '';
   document.getElementById('rat-inicio').value = STATE.config.competenciaAtual;
   document.getElementById('rat-valor').focus();
-}
-  showToast('Nova sessão de rateio pronta para preencher.');
-});
 
+  showToast('Nova sessão de rateio pronta para preencher.');
+}
 document.getElementById('btn-add-rateio').addEventListener('click', async (e)=>{
   const btn = e.currentTarget;
   const descricao = document.getElementById('rat-descricao').value.trim();
@@ -1777,7 +1779,8 @@ document.getElementById('btn-salvar-config').addEventListener('click', async (e)
   c.numApartamentos = parseInt(document.getElementById('cfg-numapt').value)||c.numApartamentos;
   c.numVagas = parseInt(document.getElementById('cfg-numvagas').value)||c.numVagas;
   c.valorTaxaPadrao = parseFloat(document.getElementById('cfg-valortaxa').value)||c.valorTaxaPadrao;
-document.getElementById('cfg-fundoreserva').value = c.valorFundoReservaPadrao || 0;
+c.valorFundoReservaPadrao =
+    parseFloat(document.getElementById('cfg-fundoreserva').value) || 0;
   c.competenciaAtual = document.getElementById('cfg-competencia').value || c.competenciaAtual;
   c.saldosBase.condominio = parseFloat(document.getElementById('cfg-saldo-condo').value)||0;
   c.saldosBase.fundoReserva = parseFloat(document.getElementById('cfg-saldo-fundo').value)||0;
