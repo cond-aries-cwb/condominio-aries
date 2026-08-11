@@ -291,7 +291,7 @@
       <div class="view-title"><h2>Receber Pagamento</h2><p>Marque o pagamento da taxa condominial por unidade, na competência atual. Lembretes ficam disponíveis a partir do dia 1 do mês da competência.</p></div>
       <div class="card">
         <table class="ledger" id="pagamento-table">
-          <thead><tr><th>Apto</th><th>Morador</th><th class="num">Valor esperado</th><th>Status</th><th></th><th></th></tr></thead>
+          <thead><tr><th>Apto</th><th>Morador</th><th class="num">Valores / Responsabilidade</th><th>Status</th><th></th><th></th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -1079,7 +1079,9 @@ function renderPagamento(){
     const email = u.morador && u.morador.email;
     const pagamento = STATE.pagamentos[comp+'_'+i];
     const isento = !!u.isentoTaxa;
-    const valorEsperado = taxaDevidaApto(i) + rateioApto;
+    const valorTaxa = taxaDevidaApto(i);
+const valorFundoReserva = Number(STATE.config.valorFundoReservaPadrao) || 0;
+const valorEsperado = valorTaxa + valorFundoReserva + rateioApto;
     const pago = pagamento && pagamento.pago;
     const tr = document.createElement('tr');
     let btnLembrar = '';
@@ -1098,7 +1100,22 @@ function renderPagamento(){
     if(isento && rateioApto <= 0) statusBadge = '<span class="badge ok">Isento</span>';
     else if(pago) statusBadge = '<span class="badge ok">Pago</span>';
     else statusBadge = '<span class="badge no">Pendente</span>';
-    tr.innerHTML = `<td>${i}${isento?' <span title="Isento da taxa condominial" style="color:var(--gold);">★</span>':''}</td><td>${morador}</td><td class="num">${fmtMoney(valorEsperado)}</td>
+    const ehProprietario = !!u.moradorEhProprietario;
+const nomeProprietario = (u.proprietario && u.proprietario.nome) || '—';
+
+const valorResponsabilidadeMorador = valorTaxa;
+const valorResponsabilidadeProprietario = valorFundoReserva + rateioApto;
+
+const detalheValores = ehProprietario
+  ? `Taxa: ${fmtMoney(valorTaxa)}<br>Fundo: ${fmtMoney(valorFundoReserva)}${rateioApto > 0 ? `<br>Rateio: ${fmtMoney(rateioApto)}` : ''}`
+  : `Morador: ${fmtMoney(valorTaxa)}<br>Proprietário: ${fmtMoney(valorResponsabilidadeProprietario)}`;
+
+tr.innerHTML = `<td>${i}${isento?' <span title="Isento da taxa condominial" style="color:var(--gold);">★</span>':''}</td>
+  <td>${morador}</td>
+  <td class="num">
+    <div style="font-size:12px;line-height:1.5;">${detalheValores}</div>
+    <strong>${fmtMoney(valorEsperado)}</strong>
+  </td>
       <td>${statusBadge}</td>
       <td>${(isReadOnly() || (isento && rateioApto<=0)) ? '' : `<button class="btn" data-apto="${i}">${pago?'Editar':'Registrar'}</button>`}</td>
       <td>${btnLembrar}</td>`;
