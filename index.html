@@ -436,13 +436,72 @@
       <div class="field"><label>Data de entrada</label><input id="un-morador-entrada" type="date"></div>
       <div class="field"><label>Data de saída</label><input id="un-morador-saida" type="date"></div>
     </div>
+<div id="bloco-administracao">
+
+  <div class="section-heading">Administração do imóvel</div>
+
+  <div class="field">
+    <label>É administrado por imobiliária?</label>
+
+    <div style="display:flex;gap:18px;align-items:center;margin-top:6px;">
+
+      <label style="display:flex;align-items:center;gap:6px;font-weight:400;">
+        <input
+          type="radio"
+          name="un-adm-imobiliaria"
+          id="un-adm-imob-sim"
+          value="sim"
+          style="width:auto;">
+        Sim
+      </label>
+
+      <label style="display:flex;align-items:center;gap:6px;font-weight:400;">
+        <input
+          type="radio"
+          name="un-adm-imobiliaria"
+          id="un-adm-imob-nao"
+          value="nao"
+          style="width:auto;">
+        Não
+      </label>
+
+    </div>
+  </div>
+
+  <div id="bloco-dados-imobiliaria">
+
+    <div class="field">
+      <label>Imobiliária / Administradora</label>
+      <input id="un-adm-nome" placeholder="Nome da imobiliária ou administradora">
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Telefone</label>
+        <input id="un-adm-tel">
+      </div>
+
+      <div class="field">
+        <label>E-mail</label>
+        <input id="un-adm-email">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>CNPJ</label>
+      <input id="un-adm-cnpj" placeholder="CNPJ da imobiliária / administradora">
+    </div>
+
+  </div>
+
+</div>
     <div id="bloco-proprietario">
 
   <div class="section-heading">Proprietário</div>
 
   <div class="field">
     <label>Nome</label>
-    <input id="un-prop-nome" placeholder="Nome do proprietário (se conhecido)">
+    <input id="un-prop-nome" placeholder="Nome do proprietário">
   </div>
 
   <div class="field-row">
@@ -461,6 +520,8 @@
     <label>CPF / CNPJ</label>
     <input id="un-prop-cpf" placeholder="CPF ou CNPJ">
   </div>
+
+</div>
 
   <div class="section-heading">Administração do imóvel</div>
 
