@@ -1069,10 +1069,58 @@ const ehProp = !!u.moradorEhProprietario;
   document.getElementById('un-morador-cpf').value = (u.morador&&u.morador.cpf)||'';
   document.getElementById('un-morador-entrada').value = (u.morador&&u.morador.dataEntrada)||'';
   document.getElementById('un-morador-saida').value = (u.morador&&u.morador.dataSaida)||'';
-  document.getElementById('un-prop-nome').value = (u.proprietario&&u.proprietario.nome)||'';
-  document.getElementById('un-prop-tel').value = (u.proprietario&&u.proprietario.telefone)||'';
-  document.getElementById('un-prop-email').value = (u.proprietario&&u.proprietario.email)||'';
-  document.getElementById('un-prop-cpf').value = (u.proprietario&&u.proprietario.cpf)||'';
+  // PROPRIETÁRIO
+document.getElementById('un-prop-nome').value =
+  (u.proprietario && u.proprietario.nome) || '';
+
+document.getElementById('un-prop-tel').value =
+  (u.proprietario && u.proprietario.telefone) || '';
+
+document.getElementById('un-prop-email').value =
+  (u.proprietario && u.proprietario.email) || '';
+
+document.getElementById('un-prop-cpf').value =
+  (u.proprietario && u.proprietario.cpf) || '';
+
+
+// ADMINISTRAÇÃO DO IMÓVEL
+const adm = u.administracao || {};
+
+// Compatibilidade com a estrutura antiga:
+// se anteriormente "ehImobiliaria" estava dentro de proprietario,
+// usamos essa informação para preencher a nova estrutura.
+const ehImobiliaria = !!(
+  adm.ehImobiliaria !== undefined
+    ? adm.ehImobiliaria
+    : (u.proprietario && u.proprietario.ehImobiliaria)
+);
+
+document.getElementById('un-adm-imob-sim').checked = ehImobiliaria;
+document.getElementById('un-adm-imob-nao').checked = !ehImobiliaria;
+
+document.getElementById('un-adm-nome').value =
+  adm.nome || (
+    u.proprietario && u.proprietario.ehImobiliaria
+      ? u.proprietario.nome || ''
+      : ''
+  );
+
+document.getElementById('un-adm-tel').value =
+  adm.telefone || (
+    u.proprietario && u.proprietario.ehImobiliaria
+      ? u.proprietario.telefone || ''
+      : ''
+  );
+
+document.getElementById('un-adm-email').value =
+  adm.email || (
+    u.proprietario && u.proprietario.ehImobiliaria
+      ? u.proprietario.email || ''
+      : ''
+  );
+
+document.getElementById('un-adm-cnpj').value =
+  adm.cnpj || '';
   document.getElementById('un-gar-possui').value = (u.garagem&&u.garagem.possui)||'nao';
   document.getElementById('un-gar-numero').value = (u.garagem&&u.garagem.numero)||'';
   document.getElementById('un-gar-tipo').value = (u.garagem&&u.garagem.tipo)||'cativa';
@@ -1106,11 +1154,18 @@ document.getElementById('btn-salvar-unidade').addEventListener('click', async ()
       dataSaida: document.getElementById('un-morador-saida').value,
     },
     proprietario: {
-  ehImobiliaria: document.getElementById('un-prop-imob-sim').checked,
   nome: document.getElementById('un-prop-nome').value,
   telefone: document.getElementById('un-prop-tel').value,
   email: document.getElementById('un-prop-email').value,
   cpf: document.getElementById('un-prop-cpf').value,
+},
+
+administracao: {
+  ehImobiliaria: document.getElementById('un-adm-imob-sim').checked,
+  nome: document.getElementById('un-adm-nome').value,
+  telefone: document.getElementById('un-adm-tel').value,
+  email: document.getElementById('un-adm-email').value,
+  cnpj: document.getElementById('un-adm-cnpj').value,
 },
     garagem: {
       possui: document.getElementById('un-gar-possui').value,
