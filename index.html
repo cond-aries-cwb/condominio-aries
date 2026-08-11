@@ -320,12 +320,15 @@
 
     <!-- FORNECEDORES -->
     <section class="view" id="view-fornecedores">
-      <div class="view-title flex-between">
-        <div><h2>Fornecedores</h2><p>Prestadores de serviço do condomínio.</p></div>
-        <button class="add-btn" id="btn-novo-fornecedor">+ Novo fornecedor</button>
-      </div>
-      <div class="grid g3" id="fornecedores-grid"></div>
-    </section>
+  <div class="view-title flex-between">
+    <div><h2>Fornecedores</h2><p>Prestadores de serviço do condomínio.</p></div>
+    <button class="add-btn" id="btn-novo-fornecedor">+ Novo fornecedor</button>
+  </div>
+  <div class="grid g3" id="fornecedores-grid"></div>
+  <div class="section-heading">Lista Negra</div>
+  <div class="login-hint" style="text-align:left;margin-bottom:10px;">Fornecedores aqui ficam fora da lista principal, mas podem ser restaurados a qualquer momento.</div>
+  <div class="grid g3" id="fornecedores-lista-negra"></div>
+</section>
 
     <!-- CONFIGURAÇÕES -->
     <section class="view" id="view-config">
@@ -570,8 +573,14 @@
 <div class="modal-overlay" id="modal-fornecedor">
   <div class="modal">
     <div class="modal-header"><h3>Novo fornecedor</h3><button class="modal-close" data-close="">✕</button></div>
-    <div class="field"><label>Nome</label><input id="forn-nome"></div>
+    <div class="field"><label>Nome do Responsável</label><input id="forn-nome"></div>
+    <div class="field"><label>Nome(s) do(s) Prestador(es)</label><input id="forn-prestadores" placeholder="Ex: João Silva, Pedro Santos"></div>
     <div class="field"><label>Categoria / tipo de serviço</label><input id="forn-categoria" placeholder="Ex: Manutenção elétrica"></div>
+    <div class="field-row">
+      <div class="field"><label>CNPJ</label><input id="forn-cnpj" placeholder="00.000.000/0000-00"></div>
+      <div class="field"><label>Data do Cadastro</label><input id="forn-cadastro" type="date"></div>
+    </div>
+    <div class="field"><label>Endereço (completo)</label><input id="forn-endereco" placeholder="Rua, número, bairro, cidade — UF, CEP"></div>
     <div class="field-row">
       <div class="field"><label>Contato</label><input id="forn-contato"></div>
       <div class="field"><label>Telefone</label><input id="forn-telefone"></div>
@@ -580,6 +589,22 @@
     <div class="field-row">
       <div class="field"><label>Valor de referência (R$)</label><input id="forn-valor" type="number" step="0.01"></div>
       <div class="field"><label>Último orçamento/serviço</label><input id="forn-data" type="date"></div>
+    </div>
+    <div class="section-heading">Forma de pagamento ao prestador</div>
+    <div class="field">
+      <label>Pagamento por boleto?</label>
+      <div style="display:flex;gap:16px;margin-top:6px;">
+        <label style="display:flex;align-items:center;gap:6px;font-weight:400;"><input type="radio" name="forn-boleto" id="forn-boleto-sim" value="sim" style="width:auto;"> Sim</label>
+        <label style="display:flex;align-items:center;gap:6px;font-weight:400;"><input type="radio" name="forn-boleto" id="forn-boleto-nao" value="nao" style="width:auto;" checked> Não</label>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Banco</label><input id="forn-banco"></div>
+      <div class="field"><label>Tipo de Conta</label><select id="forn-tipo-conta"><option value="corrente">Corrente</option><option value="poupanca">Poupança</option></select></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Número da Conta</label><input id="forn-numero-conta"></div>
+      <div class="field"><label>PIX</label><input id="forn-pix"></div>
     </div>
     <div class="field"><label>Observações</label><textarea id="forn-obs"></textarea></div>
     <div class="modal-actions">
@@ -1691,50 +1716,93 @@ function renderPrestacaoContent(){
 /* ---------------- RENDER: FORNECEDORES ---------------- */
 function renderFornecedores(){
   const grid = document.getElementById('fornecedores-grid');
+  const gridNegra = document.getElementById('fornecedores-lista-negra');
   document.getElementById('btn-novo-fornecedor').style.display = isReadOnly() ? 'none' : 'inline-block';
-  if(STATE.fornecedores.length===0){
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><span class="ic">🧰</span>Nenhum fornecedor cadastrado ainda.</div>`;
-    return;
-  }
-  grid.innerHTML = STATE.fornecedores.map(f=>`
-    <div class="fornecedor-card">
-      <h4>${f.nome}</h4>
+
+  const ativos = STATE.fornecedores.filter(f=> !f.listaNegra);
+  const negra = STATE.fornecedores.filter(f=> f.listaNegra);
+
+  grid.innerHTML = ativos.length
+    ? ativos.map(f=> fornecedorCardHtml(f, false)).join('')
+    : `<div class="empty-state" style="grid-column:1/-1;"><span class="ic">🧰</span>Nenhum fornecedor cadastrado ainda.</div>`;
+
+  gridNegra.innerHTML = negra.length
+    ? negra.map(f=> fornecedorCardHtml(f, true)).join('')
+    : `<div class="empty-state" style="grid-column:1/-1;color:var(--ink-faint);">Nenhum fornecedor na lista negra.</div>`;
+
+  attachFornecedorCardEvents();
+}
+
+function fornecedorCardHtml(f, emListaNegra){
+  const ro = isReadOnly();
+  const botoes = ro ? '' : (emListaNegra
+    ? `<button class="btn" data-remover-negra="${f.id}" style="font-size:12px;padding:6px 10px;margin-top:8px;">Remover da Lista Negra</button>
+       <button class="btn primary" data-remover-negra-confirma="${f.id}" style="display:none;font-size:12px;padding:6px 10px;margin-top:8px;">Confirmar remoção?</button>`
+    : `<button class="btn danger" data-lista-negra="${f.id}" style="font-size:12px;padding:6px 10px;margin-top:8px;">Lista Negra</button>
+       <button class="btn danger" data-lista-negra-confirma="${f.id}" style="display:none;font-size:12px;padding:6px 10px;margin-top:8px;">Enviar para a Lista Negra?</button>`);
+  return `
+    <div class="fornecedor-card" style="${emListaNegra?'border-color:var(--alert-soft);':''}">
+      <h4>${f.nome}${f.prestadores? ' <span style="font-size:11px;color:var(--ink-faint);font-weight:400;">('+f.prestadores+')</span>':''}</h4>
       <div class="cat">${f.categoria||'—'}</div>
       <div class="row">👤 ${f.contato||'—'}</div>
       <div class="row">📞 ${f.telefone||'—'}</div>
       <div class="row">✉️ ${f.email||'—'}</div>
+      <div class="row">🧾 CNPJ: ${f.cnpj||'—'}</div>
+      <div class="row">📍 ${f.endereco||'—'}</div>
       <div class="row">💰 ${f.valorReferencia ? fmtMoney(f.valorReferencia) : '—'}</div>
+      <div class="row">📅 Cadastrado em: ${f.dataCadastro||'—'}</div>
       <div class="row">📅 Última atualização: ${f.ultimaAtualizacao||'—'}</div>
+      <div class="row">💳 Boleto: ${f.pagamentoBoleto ? 'Sim' : 'Não'}</div>
+      ${!f.pagamentoBoleto ? `
+      <div class="row">🏦 ${f.banco||'—'} — ${f.tipoConta==='poupanca'?'Poupança':'Corrente'} — Conta ${f.numeroConta||'—'}</div>
+      <div class="row">🔑 PIX: ${f.pix||'—'}</div>` : ''}
       ${f.obs? `<div class="row" style="margin-top:6px;font-style:italic;">${f.obs}</div>`:''}
-    </div>`).join('');
+      ${botoes}
+    </div>`;
 }
-document.getElementById('btn-novo-fornecedor').addEventListener('click', ()=> openModal('modal-fornecedor'));
-document.getElementById('btn-salvar-fornecedor').addEventListener('click', async (e)=>{
-  const btn = e.currentTarget;
-  if(btn.disabled) return;
-  btn.disabled = true;
-  const f = {
-    id: 'f'+Date.now(),
-    nome: document.getElementById('forn-nome').value,
-    categoria: document.getElementById('forn-categoria').value,
-    contato: document.getElementById('forn-contato').value,
-    telefone: document.getElementById('forn-telefone').value,
-    email: document.getElementById('forn-email').value,
-    valorReferencia: parseFloat(document.getElementById('forn-valor').value)||null,
-    ultimaAtualizacao: document.getElementById('forn-data').value,
-    obs: document.getElementById('forn-obs').value
-  };
-  if(!f.nome){ showToast('Informe o nome do fornecedor.'); btn.disabled = false; return; }
-  STATE.fornecedores.push(f);
-  await storageSet('fornecedores', STATE.fornecedores, true);
-  await logAction(`Cadastrou fornecedor "${f.nome}"`);
-  closeModal('modal-fornecedor');
-  ['forn-nome','forn-categoria','forn-contato','forn-telefone','forn-email','forn-valor','forn-data','forn-obs'].forEach(id=> document.getElementById(id).value='');
-  renderFornecedores();
-  showToast('Fornecedor cadastrado.');
-  btn.disabled = false;
-});
 
+function attachFornecedorCardEvents(){
+  document.querySelectorAll('button[data-lista-negra]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      b.style.display = 'none';
+      b.parentElement.querySelector(`button[data-lista-negra-confirma="${b.dataset.listaNegra}"]`).style.display = 'inline-block';
+    });
+  });
+  document.querySelectorAll('button[data-lista-negra-confirma]').forEach(b=>{
+    b.addEventListener('click', async (e)=>{
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      const id = btn.dataset.listaNegraConfirma;
+      const f = STATE.fornecedores.find(x=> x.id === id);
+      if(!f) return;
+      f.listaNegra = true;
+      await storageSet('fornecedores', STATE.fornecedores, true);
+      await logAction(`Enviou o fornecedor "${f.nome}" para a Lista Negra`);
+      renderFornecedores();
+      showToast('Fornecedor enviado para a Lista Negra.');
+    });
+  });
+  document.querySelectorAll('button[data-remover-negra]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      b.style.display = 'none';
+      b.parentElement.querySelector(`button[data-remover-negra-confirma="${b.dataset.removerNegra}"]`).style.display = 'inline-block';
+    });
+  });
+  document.querySelectorAll('button[data-remover-negra-confirma]').forEach(b=>{
+    b.addEventListener('click', async (e)=>{
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      const id = btn.dataset.removerNegraConfirma;
+      const f = STATE.fornecedores.find(x=> x.id === id);
+      if(!f) return;
+      f.listaNegra = false;
+      await storageSet('fornecedores', STATE.fornecedores, true);
+      await logAction(`Removeu o fornecedor "${f.nome}" da Lista Negra`);
+      renderFornecedores();
+      showToast('Fornecedor removido da Lista Negra.');
+    });
+  });
+}
 /* ---------------- RENDER: CONFIG ---------------- */
 function renderRateios(){
   const box = document.getElementById('rateios-lista');
