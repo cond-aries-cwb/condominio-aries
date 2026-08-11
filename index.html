@@ -1122,43 +1122,7 @@ document.getElementById('un-prop-cpf').value =
 
 
 // ADMINISTRAÇÃO DO IMÓVEL
-const adm = u.administracao || {};
-
-// Compatibilidade com a estrutura antiga:
-// se anteriormente "ehImobiliaria" estava dentro de proprietario,
-// usamos essa informação para preencher a nova estrutura.
-const ehImobiliaria = !!(
-  adm.ehImobiliaria !== undefined
-    ? adm.ehImobiliaria
-    : (u.proprietario && u.proprietario.ehImobiliaria)
-);
-
-document.getElementById('un-adm-imob-sim').checked = ehImobiliaria;
-document.getElementById('un-adm-imob-nao').checked = !ehImobiliaria;
-
-document.getElementById('un-adm-nome').value =
-  adm.nome || (
-    u.proprietario && u.proprietario.ehImobiliaria
-      ? u.proprietario.nome || ''
-      : ''
-  );
-
-document.getElementById('un-adm-tel').value =
-  adm.telefone || (
-    u.proprietario && u.proprietario.ehImobiliaria
-      ? u.proprietario.telefone || ''
-      : ''
-  );
-
-document.getElementById('un-adm-email').value =
-  adm.email || (
-    u.proprietario && u.proprietario.ehImobiliaria
-      ? u.proprietario.email || ''
-      : ''
-  );
-
-document.getElementById('un-adm-cnpj').value =
-  adm.cnpj || '';
+// Temporariamente desativado para teste
   document.getElementById('un-gar-possui').value = (u.garagem&&u.garagem.possui)||'nao';
   document.getElementById('un-gar-numero').value = (u.garagem&&u.garagem.numero)||'';
   document.getElementById('un-gar-tipo').value = (u.garagem&&u.garagem.tipo)||'cativa';
