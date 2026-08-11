@@ -1101,7 +1101,6 @@ function openUnidadeModal(apto){
 const ehProp = !!u.moradorEhProprietario;
   document.getElementById('un-eh-prop-sim').checked = ehProp;
   document.getElementById('un-eh-prop-nao').checked = !ehProp;
-  document.getElementById('bloco-proprietario').style.display = ehProp ? 'none' : 'block';
   document.getElementById('un-morador-tel').value = (u.morador&&u.morador.telefone)||'';
   document.getElementById('un-morador-whats').value = (u.morador&&u.morador.whatsapp)||'';
   document.getElementById('un-morador-email').value = (u.morador&&u.morador.email)||'';
@@ -1172,7 +1171,10 @@ document.getElementById('un-adm-cnpj').value =
   document.getElementById('btn-salvar-unidade').style.display = ro ? 'none' : 'inline-block';
   document.getElementById('modal-unidade-readonly-note').innerHTML = ro ? '<div class="readonly-note">Modo somente leitura — o perfil Presidente do Conselho não pode editar.</div>' : '';
 
-  openModal('modal-unidade');
+// Atualiza a visibilidade dos blocos conforme os dados carregados
+atualizarVisibilidadeUnidade();
+
+openModal('modal-unidade');
 }
 
 document.getElementById('btn-salvar-unidade').addEventListener('click', async ()=>{
