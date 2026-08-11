@@ -1298,10 +1298,38 @@ tr.innerHTML = `<td>${i}${isento?' <span title="Isento da taxa condominial" styl
   tbody.querySelectorAll('button[data-lembrar-confirma]').forEach(b=>{
     b.addEventListener('click', (e)=> enviarLembreteIndividual(parseInt(b.dataset.lembrarConfirma), e.currentTarget));
   });
-document.querySelectorAll('input[name="un-eh-prop"]').forEach(r=>{
-  r.addEventListener('change', ()=>{
-    document.getElementById('bloco-proprietario').style.display = document.getElementById('un-eh-prop-sim').checked ? 'none' : 'block';
-  });
+function atualizarVisibilidadeUnidade() {
+
+  const ehProprietario =
+    document.getElementById('un-eh-prop-sim').checked;
+
+  const temImobiliaria =
+    document.getElementById('un-adm-imob-sim').checked;
+
+  // Se o morador é o proprietário,
+  // não precisamos mostrar proprietário nem administração.
+  document.getElementById('bloco-proprietario').style.display =
+    ehProprietario ? 'none' : 'block';
+
+  document.getElementById('bloco-administracao').style.display =
+    ehProprietario ? 'none' : 'block';
+
+  // Se não há imobiliária, escondemos somente
+  // os dados da imobiliária.
+  document.getElementById('bloco-dados-imobiliaria').style.display =
+    (!ehProprietario && temImobiliaria) ? 'block' : 'none';
+}
+
+
+// Morador é proprietário?
+document.querySelectorAll('input[name="un-eh-prop"]').forEach(r => {
+  r.addEventListener('change', atualizarVisibilidadeUnidade);
+});
+
+
+// Administração por imobiliária?
+document.querySelectorAll('input[name="un-adm-imobiliaria"]').forEach(r => {
+  r.addEventListener('change', atualizarVisibilidadeUnidade);
 });
 }
 
