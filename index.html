@@ -1050,11 +1050,12 @@ document.getElementById('btn-salvar-unidade').addEventListener('click', async ()
       dataSaida: document.getElementById('un-morador-saida').value,
     },
     proprietario: {
-      nome: document.getElementById('un-prop-nome').value,
-      telefone: document.getElementById('un-prop-tel').value,
-      email: document.getElementById('un-prop-email').value,
-      cpf: document.getElementById('un-prop-cpf').value,
-    },
+  ehImobiliaria: document.getElementById('un-prop-imob-sim').checked,
+  nome: document.getElementById('un-prop-nome').value,
+  telefone: document.getElementById('un-prop-tel').value,
+  email: document.getElementById('un-prop-email').value,
+  cpf: document.getElementById('un-prop-cpf').value,
+},
     garagem: {
       possui: document.getElementById('un-gar-possui').value,
       numero: document.getElementById('un-gar-numero').value,
