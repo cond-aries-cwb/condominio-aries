@@ -437,13 +437,27 @@
       <div class="field"><label>Data de saída</label><input id="un-morador-saida" type="date"></div>
     </div>
     <div id="bloco-proprietario">
-      <div class="section-heading">Proprietário</div>
-      <div class="field"><label>Nome</label><input id="un-prop-nome"></div>
+      <div class="section-heading">Responsável pelas obrigações do proprietário</div>
+      <div class="field">
+  <label>É imobiliária?</label>
+  <div style="display:flex;gap:18px;align-items:center;margin-top:6px;">
+    <label style="display:flex;align-items:center;gap:6px;font-weight:400;">
+      <input type="radio" name="un-prop-imobiliaria" id="un-prop-imob-sim" value="sim" style="width:auto;">
+      Sim
+    </label>
+
+    <label style="display:flex;align-items:center;gap:6px;font-weight:400;">
+      <input type="radio" name="un-prop-imobiliaria" id="un-prop-imob-nao" value="nao" style="width:auto;">
+      Não
+    </label>
+  </div>
+</div>
+      <div class="field"><label>Nome / Razão Social</label><input id="un-prop-nome"></div>
       <div class="field-row">
         <div class="field"><label>Telefone</label><input id="un-prop-tel"></div>
         <div class="field"><label>E-mail</label><input id="un-prop-email"></div>
       </div>
-      <div class="field"><label>CPF</label><input id="un-prop-cpf" placeholder="000.000.000-00"></div>
+      <div class="field"><label>CPF / CNPJ</label><input id="un-prop-cpf" placeholder="CPF ou CNPJ"></div>
     </div>
     <div class="section-heading">Garagem</div>
     <div class="field-row">
