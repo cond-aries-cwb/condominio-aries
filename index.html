@@ -1122,7 +1122,7 @@ document.getElementById('un-prop-cpf').value =
 
 
 // ADMINISTRAÇÃO DO IMÓVEL
-// Temporariamente desativado para teste
+const adm = u.administracao || {};
   document.getElementById('un-gar-possui').value = (u.garagem&&u.garagem.possui)||'nao';
   document.getElementById('un-gar-numero').value = (u.garagem&&u.garagem.numero)||'';
   document.getElementById('un-gar-tipo').value = (u.garagem&&u.garagem.tipo)||'cativa';
