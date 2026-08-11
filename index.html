@@ -553,7 +553,11 @@
 <div class="modal">
 <div class="modal-header"><h3 id="modal-despesa-title">Lançar despesa</h3><button class="modal-close" data-close="">✕</button></div>
 <div class="field"><label>Tipo</label><select id="desp-tipo"><option value="fixa">Fixa</option><option value="variavel">Variável</option></select></div>
-<div class="field"><label>Descrição</label><input id="desp-descricao"></div>
+<div class="field"><label>Descrição</label>
+<select id="desp-descricao-select"></select>
+</div>
+<div class="field" id="desp-descricao-outro-wrap" style="display:none;"><label>Especifique</label><input id="desp-descricao-outro" placeholder="Descreva a despesa"></div>
+<div class="field"><label>Observação (opcional)</label><input id="desp-observacao" placeholder="Ex: Seguro Predial (para diferenciar de Seguro Incêndio)"></div>
 <div class="field-row">
 <div class="field"><label>Valor (R$)</label><input id="desp-valor" type="number" step="0.01"></div>
 <div class="field"><label>Forma de pagamento</label><input id="desp-forma" placeholder="Ex: Conta poupança"></div>
@@ -1498,6 +1502,30 @@ document.getElementById('btn-confirmar-pagamento-etapa2').addEventListener('clic
 });
 
 /* ---------------- RENDER: DESPESAS ---------------- */
+const DESPESAS_FIXAS_OPCOES = ["Copel (luz)","Diarista","Pró-Labore Síndico(a)","Sanepar (água)"];
+const DESPESAS_VARIAVEIS_OPCOES = ["Encanador","Extintores","Impressões","Jardinagem","Lâmpadas","Pedreiro","Produtos de limpeza","Seguro","Serviço Contábil","Serviço Jurídico","Taxa TEV"];
+
+function popularOpcoesDespesa(descricaoAtual){
+const tipo = document.getElementById('desp-tipo').value;
+const opcoes = tipo === 'fixa' ? DESPESAS_FIXAS_OPCOES : DESPESAS_VARIAVEIS_OPCOES;
+const sel = document.getElementById('desp-descricao-select');
+sel.innerHTML = opcoes.map(o=>`<option value="${o}">${o}</option>`).join('') + '<option value="__outro__">Outro (especificar)</option>';
+if(descricaoAtual && opcoes.includes(descricaoAtual)){
+sel.value = descricaoAtual;
+document.getElementById('desp-descricao-outro-wrap').style.display = 'none';
+} else if(descricaoAtual){
+sel.value = '__outro__';
+document.getElementById('desp-descricao-outro').value = descricaoAtual;
+document.getElementById('desp-descricao-outro-wrap').style.display = 'block';
+} else {
+sel.value = opcoes[0];
+document.getElementById('desp-descricao-outro-wrap').style.display = 'none';
+}
+}
+document.getElementById('desp-tipo').addEventListener('change', ()=> popularOpcoesDespesa());
+document.getElementById('desp-descricao-select').addEventListener('change', (e)=>{
+document.getElementById('desp-descricao-outro-wrap').style.display = e.target.value === '__outro__' ? 'block' : 'none';
+});
 function renderDespesas(){
 const comp = STATE.config.competenciaAtual;
 const fixas = STATE.despesas.filter(d=> d.competencia===comp && d.tipo==='fixa');
