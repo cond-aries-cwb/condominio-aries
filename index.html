@@ -1534,10 +1534,28 @@ const fmtData = d => d ? new Date(d+'T00:00:00').toLocaleDateString('pt-BR') : '
 const fill = (list, tbodySel) => {
 const tbody = document.querySelector(tbodySel);
 tbody.innerHTML = list.length ? list.map(d=>
-`<tr><td>${d.descricao}</td><td>${d.forma||'—'}</td><td>${fmtData(d.vencimento)}</td><td>${fmtData(d.dataPagamento)}</td><td class="num">${fmtMoney(d.valor)}</td><td>${isReadOnly() ? '' : `<button class="btn" data-editar-despesa="${d.id}">Editar</button>`}</td></tr>`
+`<tr><td>${d.descricao}${d.observacao ? `<div style="font-size:11px;color:var(--ink-faint);">${d.observacao}</div>` : ''}</td><td>${d.forma||'—'}</td><td>${fmtData(d.vencimento)}</td><td>${fmtData(d.dataPagamento)}</td><td class="num">${fmtMoney(d.valor)}</td><td>${isReadOnly() ? '' : `<button class="btn" data-editar-despesa="${d.id}">Editar</button> <button class="btn" data-excluir-despesa="${d.id}">Excluir</button> <button class="btn danger" data-excluir-despesa-confirma="${d.id}" style="display:none;">Confirmar exclusão?</button>`}</td></tr>`
 ).join('') : `<tr><td colspan="6" style="color:var(--ink-faint);text-align:center;padding:20px;">Nenhum lançamento nesta competência.</td></tr>`;
 tbody.querySelectorAll('button[data-editar-despesa]').forEach(b=>{
 b.addEventListener('click', ()=> openDespesaModal(b.dataset.editarDespesa));
+});
+tbody.querySelectorAll('button[data-excluir-despesa]').forEach(b=>{
+b.addEventListener('click', ()=>{
+b.style.display = 'none';
+b.parentElement.querySelector(`button[data-excluir-despesa-confirma="${b.dataset.excluirDespesa}"]`).style.display = 'inline-block';
+});
+});
+tbody.querySelectorAll('button[data-excluir-despesa-confirma]').forEach(b=>{
+b.addEventListener('click', async ()=>{
+const id = b.dataset.excluirDespesaConfirma;
+const despesa = STATE.despesas.find(x=> x.id === id);
+STATE.despesas = STATE.despesas.filter(x=> x.id !== id);
+await storageSet('despesas', STATE.despesas, true);
+await logAction(`Excluiu a despesa "${despesa ? despesa.descricao : id}"`);
+renderDespesas();
+renderDashboard();
+showToast('Despesa excluída.');
+});
 });
 };
 fill(fixas, '#despesas-fixas-table tbody');
@@ -1549,28 +1567,36 @@ STATE.editingDespesa = id || null;
 const d = id ? STATE.despesas.find(x=> x.id === id) : null;
 document.getElementById('modal-despesa-title').textContent = d ? 'Editar despesa' : 'Lançar despesa';
 document.getElementById('desp-tipo').value = d ? d.tipo : 'fixa';
-document.getElementById('desp-descricao').value = d ? d.descricao : '';
 document.getElementById('desp-valor').value = d ? d.valor : '';
 document.getElementById('desp-forma').value = d ? (d.forma||'') : '';
 document.getElementById('desp-vencimento').value = d ? (d.vencimento||'') : '';
 document.getElementById('desp-data-pagamento').value = d ? (d.dataPagamento||'') : '';
+document.getElementById('desp-observacao').value = d ? (d.observacao||'') : '';
 document.getElementById('desp-caixa').value = d ? (d.caixa||'condominio') : 'condominio';
+popularOpcoesDespesa(d ? d.descricao : '');
 openModal('modal-despesa');
 }
 document.getElementById('btn-nova-despesa').addEventListener('click', ()=> openDespesaModal());
 document.getElementById('btn-salvar-despesa').addEventListener('click', async (e)=>{
 const btn = e.currentTarget;
 if(btn.disabled) return;
+const selecionado = document.getElementById('desp-descricao-select').value;
+const descricaoFinal = selecionado === '__outro__' ? document.getElementById('desp-descricao-outro').value.trim() : selecionado;
+if(!descricaoFinal){
+showToast('Escolha ou digite uma descrição antes de salvar.');
+return;
+}
 btn.disabled = true;
 const valor = parseFloat(document.getElementById('desp-valor').value)||0;
 const caixa = document.getElementById('desp-caixa').value;
 const dadosComuns = {
 tipo: document.getElementById('desp-tipo').value,
-descricao: document.getElementById('desp-descricao').value,
+descricao: descricaoFinal,
 valor,
 forma: document.getElementById('desp-forma').value,
 vencimento: document.getElementById('desp-vencimento').value,
 dataPagamento: document.getElementById('desp-data-pagamento').value,
+observacao: document.getElementById('desp-observacao').value.trim(),
 caixa
 };
 if(STATE.editingDespesa){
@@ -1589,11 +1615,11 @@ await logAction(`Lançou despesa "${entry.descricao}" (${fmtMoney(valor)})`);
 showToast('Despesa lançada.');
 }
 closeModal('modal-despesa');
-document.getElementById('desp-descricao').value='';
 document.getElementById('desp-valor').value='';
 document.getElementById('desp-forma').value='';
 document.getElementById('desp-vencimento').value='';
 document.getElementById('desp-data-pagamento').value='';
+document.getElementById('desp-observacao').value='';
 STATE.editingDespesa = null;
 renderDespesas();
 renderDashboard();
