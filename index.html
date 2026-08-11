@@ -304,9 +304,9 @@
         <button class="add-btn" id="btn-nova-despesa">+ Lançar despesa</button>
       </div>
       <div class="section-heading">Despesas fixas</div>
-      <div class="card"><table class="ledger" id="despesas-fixas-table"><thead><tr><th>Descrição</th><th>Forma</th><th class="num">Valor</th><th></th></tr></thead><tbody></tbody></table></div>
+      <div class="card"><table class="ledger" id="despesas-fixas-table"><thead><tr><th>Descrição</th><th>Forma</th><th>Vencimento</th><th>Pagamento</th><th class="num">Valor</th><th></th></tr></thead><tbody></tbody></table></div>
       <div class="section-heading">Despesas variáveis</div>
-      <div class="card"><table class="ledger" id="despesas-variaveis-table"><thead><tr><th>Descrição</th><th>Forma</th><th class="num">Valor</th><th></th></tr></thead><tbody></tbody></table></div>
+      <div class="card"><table class="ledger" id="despesas-variaveis-table"><thead><tr><th>Descrição</th><th>Forma</th><th>Vencimento</th><th>Pagamento</th><th class="num">Valor</th><th></th></tr></thead><tbody></tbody></table></div>
     </section>
 
     <!-- PRESTAÇÃO DE CONTAS -->
@@ -547,20 +547,24 @@
 </div>
 
 <div class="modal-overlay" id="modal-despesa">
-  <div class="modal">
-    <div class="modal-header"><h3>Lançar despesa</h3><button class="modal-close" data-close="">✕</button></div>
-    <div class="field"><label>Tipo</label><select id="desp-tipo"><option value="fixa">Fixa</option><option value="variavel">Variável</option></select></div>
-    <div class="field"><label>Descrição</label><input id="desp-descricao"></div>
-    <div class="field-row">
-      <div class="field"><label>Valor (R$)</label><input id="desp-valor" type="number" step="0.01"></div>
-      <div class="field"><label>Forma de pagamento</label><input id="desp-forma" placeholder="Ex: Conta poupança"></div>
-    </div>
-    <div class="field"><label>Caixa de origem</label><select id="desp-caixa"><option value="condominio">Condomínio</option><option value="fundoReserva">Fundo de Reserva</option><option value="rateioReforma">Rateio de Reforma</option></select></div>
-    <div class="modal-actions">
-      <button class="btn" data-close="">Cancelar</button>
-      <button class="btn primary" id="btn-salvar-despesa">Salvar</button>
-    </div>
-  </div>
+<div class="modal">
+<div class="modal-header"><h3 id="modal-despesa-title">Lançar despesa</h3><button class="modal-close" data-close="">✕</button></div>
+<div class="field"><label>Tipo</label><select id="desp-tipo"><option value="fixa">Fixa</option><option value="variavel">Variável</option></select></div>
+<div class="field"><label>Descrição</label><input id="desp-descricao"></div>
+<div class="field-row">
+<div class="field"><label>Valor (R$)</label><input id="desp-valor" type="number" step="0.01"></div>
+<div class="field"><label>Forma de pagamento</label><input id="desp-forma" placeholder="Ex: Conta poupança"></div>
+</div>
+<div class="field-row">
+<div class="field"><label>Data de vencimento</label><input id="desp-vencimento" type="date"></div>
+<div class="field"><label>Data de pagamento</label><input id="desp-data-pagamento" type="date"></div>
+</div>
+<div class="field"><label>Caixa de origem</label><select id="desp-caixa"><option value="condominio">Condomínio</option><option value="fundoReserva">Fundo de Reserva</option><option value="rateioReforma">Rateio de Reforma</option></select></div>
+<div class="modal-actions">
+<button class="btn" data-close="">Cancelar</button>
+<button class="btn primary" id="btn-salvar-despesa">Salvar</button>
+</div>
+</div>
 </div>
 
 <div class="modal-overlay" id="modal-fornecedor">
@@ -624,7 +628,8 @@ let STATE = {
   historico: null,
   currentUser: null, // {role, label}
   editingUnidade: null,
-  editingPagamento: null,
+editingPagamento: null,
+editingDespesa: null,
   pcEditMode: null,
 };
 
@@ -1478,49 +1483,78 @@ document.getElementById('btn-confirmar-pagamento-etapa2').addEventListener('clic
 
 /* ---------------- RENDER: DESPESAS ---------------- */
 function renderDespesas(){
-  const comp = STATE.config.competenciaAtual;
-  const fixas = STATE.despesas.filter(d=> d.competencia===comp && d.tipo==='fixa');
-  const vars = STATE.despesas.filter(d=> d.competencia===comp && d.tipo==='variavel');
-  const fill = (list, tbodySel) => {
-    const tbody = document.querySelector(tbodySel);
-    tbody.innerHTML = list.length ? list.map(d=>
-      `<tr><td>${d.descricao}</td><td>${d.forma||'—'}</td><td class="num">${fmtMoney(d.valor)}</td><td></td></tr>`
-    ).join('') : `<tr><td colspan="4" style="color:var(--ink-faint);text-align:center;padding:20px;">Nenhum lançamento nesta competência.</td></tr>`;
-  };
-  fill(fixas, '#despesas-fixas-table tbody');
-  fill(vars, '#despesas-variaveis-table tbody');
-  document.getElementById('btn-nova-despesa').style.display = isReadOnly() ? 'none' : 'inline-block';
-}
-
-document.getElementById('btn-nova-despesa').addEventListener('click', ()=> openModal('modal-despesa'));
-document.getElementById('btn-salvar-despesa').addEventListener('click', async (e)=>{
-  const btn = e.currentTarget;
-  if(btn.disabled) return;
-  btn.disabled = true;
-  const valor = parseFloat(document.getElementById('desp-valor').value)||0;
-  const caixa = document.getElementById('desp-caixa').value;
-  const entry = {
-    id: 'd'+Date.now(),
-    competencia: STATE.config.competenciaAtual,
-    tipo: document.getElementById('desp-tipo').value,
-    descricao: document.getElementById('desp-descricao').value,
-    valor,
-    forma: document.getElementById('desp-forma').value,
-    caixa
-  };
-  STATE.despesas.push(entry);
-  await storageSet('despesas', STATE.despesas, true);
-  await logAction(`Lançou despesa "${entry.descricao}" (${fmtMoney(valor)})`);
-  closeModal('modal-despesa');
-  document.getElementById('desp-descricao').value='';
-  document.getElementById('desp-valor').value='';
-  document.getElementById('desp-forma').value='';
-  renderDespesas();
-  renderDashboard();
-  showToast('Despesa lançada.');
-  btn.disabled = false;
+const comp = STATE.config.competenciaAtual;
+const fixas = STATE.despesas.filter(d=> d.competencia===comp && d.tipo==='fixa');
+const vars = STATE.despesas.filter(d=> d.competencia===comp && d.tipo==='variavel');
+const fmtData = d => d ? new Date(d+'T00:00:00').toLocaleDateString('pt-BR') : '—';
+const fill = (list, tbodySel) => {
+const tbody = document.querySelector(tbodySel);
+tbody.innerHTML = list.length ? list.map(d=>
+`<tr><td>${d.descricao}</td><td>${d.forma||'—'}</td><td>${fmtData(d.vencimento)}</td><td>${fmtData(d.dataPagamento)}</td><td class="num">${fmtMoney(d.valor)}</td><td>${isReadOnly() ? '' : `<button class="btn" data-editar-despesa="${d.id}">Editar</button>`}</td></tr>`
+).join('') : `<tr><td colspan="6" style="color:var(--ink-faint);text-align:center;padding:20px;">Nenhum lançamento nesta competência.</td></tr>`;
+tbody.querySelectorAll('button[data-editar-despesa]').forEach(b=>{
+b.addEventListener('click', ()=> openDespesaModal(b.dataset.editarDespesa));
 });
-
+};
+fill(fixas, '#despesas-fixas-table tbody');
+fill(vars, '#despesas-variaveis-table tbody');
+document.getElementById('btn-nova-despesa').style.display = isReadOnly() ? 'none' : 'inline-block';
+}
+function openDespesaModal(id){
+STATE.editingDespesa = id || null;
+const d = id ? STATE.despesas.find(x=> x.id === id) : null;
+document.getElementById('modal-despesa-title').textContent = d ? 'Editar despesa' : 'Lançar despesa';
+document.getElementById('desp-tipo').value = d ? d.tipo : 'fixa';
+document.getElementById('desp-descricao').value = d ? d.descricao : '';
+document.getElementById('desp-valor').value = d ? d.valor : '';
+document.getElementById('desp-forma').value = d ? (d.forma||'') : '';
+document.getElementById('desp-vencimento').value = d ? (d.vencimento||'') : '';
+document.getElementById('desp-data-pagamento').value = d ? (d.dataPagamento||'') : '';
+document.getElementById('desp-caixa').value = d ? (d.caixa||'condominio') : 'condominio';
+openModal('modal-despesa');
+}
+document.getElementById('btn-nova-despesa').addEventListener('click', ()=> openDespesaModal());
+document.getElementById('btn-salvar-despesa').addEventListener('click', async (e)=>{
+const btn = e.currentTarget;
+if(btn.disabled) return;
+btn.disabled = true;
+const valor = parseFloat(document.getElementById('desp-valor').value)||0;
+const caixa = document.getElementById('desp-caixa').value;
+const dadosComuns = {
+tipo: document.getElementById('desp-tipo').value,
+descricao: document.getElementById('desp-descricao').value,
+valor,
+forma: document.getElementById('desp-forma').value,
+vencimento: document.getElementById('desp-vencimento').value,
+dataPagamento: document.getElementById('desp-data-pagamento').value,
+caixa
+};
+if(STATE.editingDespesa){
+const idx = STATE.despesas.findIndex(x=> x.id === STATE.editingDespesa);
+if(idx !== -1){
+STATE.despesas[idx] = Object.assign({}, STATE.despesas[idx], dadosComuns);
+}
+await storageSet('despesas', STATE.despesas, true);
+await logAction(`Editou a despesa "${dadosComuns.descricao}" (${fmtMoney(valor)})`);
+showToast('Despesa atualizada.');
+} else {
+const entry = Object.assign({ id: 'd'+Date.now(), competencia: STATE.config.competenciaAtual }, dadosComuns);
+STATE.despesas.push(entry);
+await storageSet('despesas', STATE.despesas, true);
+await logAction(`Lançou despesa "${entry.descricao}" (${fmtMoney(valor)})`);
+showToast('Despesa lançada.');
+}
+closeModal('modal-despesa');
+document.getElementById('desp-descricao').value='';
+document.getElementById('desp-valor').value='';
+document.getElementById('desp-forma').value='';
+document.getElementById('desp-vencimento').value='';
+document.getElementById('desp-data-pagamento').value='';
+STATE.editingDespesa = null;
+renderDespesas();
+renderDashboard();
+btn.disabled = false;
+});
 /* ---------------- RENDER: PRESTAÇÃO DE CONTAS ---------------- */
 function competenciaLabel(item){
   return item.referencia || item.sheet;
