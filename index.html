@@ -560,7 +560,10 @@
 <div class="field"><label>Observação (opcional)</label><input id="desp-observacao" placeholder="Ex: Seguro Predial (para diferenciar de Seguro Incêndio)"></div>
 <div class="field-row">
 <div class="field"><label>Valor (R$)</label><input id="desp-valor" type="number" step="0.01"></div>
-<div class="field"><label>Forma de pagamento</label><input id="desp-forma" placeholder="Ex: Conta poupança"></div>
+<div class="field"><label>Forma de pagamento</label>
+<select id="desp-forma-select"><option value="Conta Poupança">Conta Poupança</option><option value="Conta Corrente">Conta Corrente</option><option value="PIX">PIX</option><option value="Dinheiro">Dinheiro</option><option value="__outro__">Outro - Especificar</option></select>
+</div>
+<div class="field" id="desp-forma-outro-wrap" style="display:none;"><label>Especifique a forma de pagamento</label><input id="desp-forma-outro"></div>
 </div>
 <div class="field-row">
 <div class="field"><label>Data de vencimento</label><input id="desp-vencimento" type="date"></div>
@@ -1526,6 +1529,9 @@ document.getElementById('desp-tipo').addEventListener('change', ()=> popularOpco
 document.getElementById('desp-descricao-select').addEventListener('change', (e)=>{
 document.getElementById('desp-descricao-outro-wrap').style.display = e.target.value === '__outro__' ? 'block' : 'none';
 });
+document.getElementById('desp-forma-select').addEventListener('change', (e)=>{
+document.getElementById('desp-forma-outro-wrap').style.display = e.target.value === '__outro__' ? 'block' : 'none';
+});
 function renderDespesas(){
 const comp = STATE.config.competenciaAtual;
 const fixas = STATE.despesas.filter(d=> d.competencia===comp && d.tipo==='fixa');
@@ -1568,7 +1574,19 @@ const d = id ? STATE.despesas.find(x=> x.id === id) : null;
 document.getElementById('modal-despesa-title').textContent = d ? 'Editar despesa' : 'Lançar despesa';
 document.getElementById('desp-tipo').value = d ? d.tipo : 'fixa';
 document.getElementById('desp-valor').value = d ? d.valor : '';
-document.getElementById('desp-forma').value = d ? (d.forma||'') : '';
+const opcoesForma = ["Conta Poupança","Conta Corrente","PIX","Dinheiro"];
+const formaAtual = d ? (d.forma||'') : '';
+if(formaAtual && opcoesForma.includes(formaAtual)){
+document.getElementById('desp-forma-select').value = formaAtual;
+document.getElementById('desp-forma-outro-wrap').style.display = 'none';
+} else if(formaAtual){
+document.getElementById('desp-forma-select').value = '__outro__';
+document.getElementById('desp-forma-outro').value = formaAtual;
+document.getElementById('desp-forma-outro-wrap').style.display = 'block';
+} else {
+document.getElementById('desp-forma-select').value = 'Conta Poupança';
+document.getElementById('desp-forma-outro-wrap').style.display = 'none';
+}
 document.getElementById('desp-vencimento').value = d ? (d.vencimento||'') : '';
 document.getElementById('desp-data-pagamento').value = d ? (d.dataPagamento||'') : '';
 document.getElementById('desp-observacao').value = d ? (d.observacao||'') : '';
@@ -1593,7 +1611,7 @@ const dadosComuns = {
 tipo: document.getElementById('desp-tipo').value,
 descricao: descricaoFinal,
 valor,
-forma: document.getElementById('desp-forma').value,
+forma: document.getElementById('desp-forma-select').value === '__outro__' ? document.getElementById('desp-forma-outro').value.trim() : document.getElementById('desp-forma-select').value,
 vencimento: document.getElementById('desp-vencimento').value,
 dataPagamento: document.getElementById('desp-data-pagamento').value,
 observacao: document.getElementById('desp-observacao').value.trim(),
@@ -1616,7 +1634,7 @@ showToast('Despesa lançada.');
 }
 closeModal('modal-despesa');
 document.getElementById('desp-valor').value='';
-document.getElementById('desp-forma').value='';
+document.getElementById('desp-forma-outro').value='';
 document.getElementById('desp-vencimento').value='';
 document.getElementById('desp-data-pagamento').value='';
 document.getElementById('desp-observacao').value='';
