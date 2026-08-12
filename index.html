@@ -758,7 +758,7 @@ function defaultConfig(){
     numVagas: 13,
     valorTaxaPadrao: 455,
     valorFundoReservaPadrao: 0,
-    competenciaAtual: "2026-05",
+    competenciaAtual: "2026-08",
     saldosBase: { condominio: 0, fundoReserva: 0, rateioReforma: 0 },
     dadosBancarios: { pix: "", banco: "", agencia: "", conta: "" },
     rateios: [],
@@ -1661,20 +1661,127 @@ btn.disabled = false;
 function competenciaLabel(item){
   return item.referencia || item.sheet;
 }
+
+function competenciaParaLabel(comp){
+  const meses = [
+    'Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+    'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'
+  ];
+
+  const [ano, mes] = comp.split('-').map(Number);
+
+  if(!ano || !mes || mes < 1 || mes > 12){
+    return comp;
+  }
+
+  return `${meses[mes - 1]}/${String(ano).slice(-2)}`;
+}
+
+function competenciaParaNumero(comp){
+  const [ano, mes] = comp.split('-').map(Number);
+  return ano * 12 + mes;
+}
+
+function gerarCompetenciasFaltantes(){
+  const atual = STATE.config.competenciaAtual;
+
+  const competencias = [];
+
+  STATE.historico.forEach((item, idx)=>{
+    competencias.push({
+      tipo: 'historico',
+      valor: String(idx),
+      competencia: item.referencia
+    });
+  });
+
+  const historicasValidas = STATE.historico
+    .map(item => {
+      const ref = item.referencia || '';
+      const partes = ref.split('/');
+
+      if(partes.length !== 2) return null;
+
+      const mes = [
+        'Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+        'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'
+      ].indexOf(partes[0]) + 1;
+
+      const ano = parseInt(partes[1], 10);
+
+      if(!mes || !ano) return null;
+
+      return `${ano < 100 ? 2000 + ano : ano}-${String(mes).padStart(2,'0')}`;
+    })
+    .filter(Boolean);
+
+  let ultima = historicasValidas.length
+    ? historicasValidas.reduce((a,b)=>
+        competenciaParaNumero(a) > competenciaParaNumero(b) ? a : b
+      )
+    : null;
+
+  if(!ultima){
+    ultima = atual;
+  }
+
+  let cursor = ultima;
+
+  while(competenciaParaNumero(cursor) < competenciaParaNumero(atual)){
+    let [ano, mes] = cursor.split('-').map(Number);
+
+    mes++;
+
+    if(mes > 12){
+      mes = 1;
+      ano++;
+    }
+
+    cursor = `${ano}-${String(mes).padStart(2,'0')}`;
+
+    if(cursor !== atual){
+      competencias.push({
+        tipo: 'vazia',
+        valor: 'mes:' + cursor,
+        competencia: cursor
+      });
+    }
+  }
+
+  return competencias;
+}
+
 function renderPrestacaoSelect(){
   const sel = document.getElementById('pc-competencia');
   sel.innerHTML = '';
-  STATE.historico.forEach((item, idx)=>{
+
+  const competencias = gerarCompetenciasFaltantes();
+
+  competencias.forEach(item=>{
     const opt = document.createElement('option');
-    opt.value = idx;
-    opt.textContent = competenciaLabel(item);
+
+    opt.value = item.valor;
+
+    if(item.tipo === 'historico'){
+      opt.textContent = competenciaLabel(
+        STATE.historico[parseInt(item.valor)]
+      );
+    }else{
+      opt.textContent = competenciaParaLabel(item.competencia);
+    }
+
     sel.appendChild(opt);
   });
+
   const optAtual = document.createElement('option');
   optAtual.value = 'atual';
-  optAtual.textContent = STATE.config.competenciaAtual + ' (atual)';
+  optAtual.textContent =
+    competenciaParaLabel(STATE.config.competenciaAtual) + ' (atual)';
+
   sel.appendChild(optAtual);
+
   sel.value = 'atual';
+
   sel.onchange = renderPrestacaoContent;
 }
 function renderPrestacaoContent(){
