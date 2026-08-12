@@ -1109,6 +1109,11 @@ function openUnidadeModal(apto){
 const ehProp = !!u.moradorEhProprietario;
   document.getElementById('un-eh-prop-sim').checked = ehProp;
   document.getElementById('un-eh-prop-nao').checked = !ehProp;
+document.getElementById('bloco-proprietario').style.display =
+  ehProp ? 'none' : 'block';
+
+document.getElementById('bloco-administracao').style.display =
+  ehProp ? 'none' : 'block';
   document.getElementById('un-morador-tel').value = (u.morador&&u.morador.telefone)||'';
   document.getElementById('un-morador-whats').value = (u.morador&&u.morador.whatsapp)||'';
   document.getElementById('un-morador-email').value = (u.morador&&u.morador.email)||'';
