@@ -662,6 +662,7 @@ let STATE = {
   editingUnidade: null,
 editingPagamento: null,
 editingDespesa: null,
+editingFornecedor: null,
   pcEditMode: null,
 };
 
@@ -1788,7 +1789,77 @@ function renderPrestacaoContent(){
 function renderFornecedores(){
   const grid = document.getElementById('fornecedores-grid');
   const gridNegra = document.getElementById('fornecedores-lista-negra');
-  document.getElementById('btn-novo-fornecedor').style.display = isReadOnly() ? 'none' : 'inline-block';
+  document.getElementById('btn-novo-fornecedor').addEventListener('click', ()=> openFornecedorModal(null));
+
+function openFornecedorModal(f){
+  STATE.editingFornecedor = f ? f.id : null;
+  document.querySelector('#modal-fornecedor .modal-header h3').textContent = f ? 'Editar fornecedor' : 'Novo fornecedor';
+  document.getElementById('forn-nome').value = f ? f.nome : '';
+  document.getElementById('forn-prestadores').value = f ? (f.prestadores||'') : '';
+  document.getElementById('forn-categoria').value = f ? (f.categoria||'') : '';
+  document.getElementById('forn-cnpj').value = f ? (f.cnpj||'') : '';
+  document.getElementById('forn-endereco').value = f ? (f.endereco||'') : '';
+  document.getElementById('forn-cadastro').value = f ? (f.dataCadastro||'') : '';
+  document.getElementById('forn-contato').value = f ? (f.contato||'') : '';
+  document.getElementById('forn-telefone').value = f ? (f.telefone||'') : '';
+  document.getElementById('forn-email').value = f ? (f.email||'') : '';
+  document.getElementById('forn-valor').value = f && f.valorReferencia ? f.valorReferencia : '';
+  document.getElementById('forn-data').value = f ? (f.ultimaAtualizacao||'') : '';
+  document.getElementById('forn-boleto-sim').checked = !!(f && f.pagamentoBoleto);
+  document.getElementById('forn-boleto-nao').checked = !(f && f.pagamentoBoleto);
+  document.getElementById('forn-banco').value = f ? (f.banco||'') : '';
+  document.getElementById('forn-tipo-conta').value = f ? (f.tipoConta||'corrente') : 'corrente';
+  document.getElementById('forn-numero-conta').value = f ? (f.numeroConta||'') : '';
+  document.getElementById('forn-pix').value = f ? (f.pix||'') : '';
+  document.getElementById('forn-obs').value = f ? (f.obs||'') : '';
+  document.getElementById('btn-salvar-fornecedor').addEventListener('click', async (e)=>{
+  const btn = e.currentTarget;
+  if(btn.disabled) return;
+  const nome = document.getElementById('forn-nome').value;
+  if(!nome){ showToast('Informe o nome do responsável.'); return; }
+  btn.disabled = true;
+
+  const dados = {
+    nome,
+    prestadores: document.getElementById('forn-prestadores').value,
+    categoria: document.getElementById('forn-categoria').value,
+    cnpj: document.getElementById('forn-cnpj').value,
+    endereco: document.getElementById('forn-endereco').value,
+    dataCadastro: document.getElementById('forn-cadastro').value || new Date().toISOString().slice(0,10),
+    contato: document.getElementById('forn-contato').value,
+    telefone: document.getElementById('forn-telefone').value,
+    email: document.getElementById('forn-email').value,
+    valorReferencia: parseFloat(document.getElementById('forn-valor').value)||null,
+    ultimaAtualizacao: document.getElementById('forn-data').value,
+    pagamentoBoleto: document.getElementById('forn-boleto-sim').checked,
+    banco: document.getElementById('forn-banco').value,
+    tipoConta: document.getElementById('forn-tipo-conta').value,
+    numeroConta: document.getElementById('forn-numero-conta').value,
+    pix: document.getElementById('forn-pix').value,
+    obs: document.getElementById('forn-obs').value
+  };
+
+  let acaoLog;
+  if(STATE.editingFornecedor){
+    const f = STATE.fornecedores.find(x=> x.id === STATE.editingFornecedor);
+    Object.assign(f, dados);
+    acaoLog = `Editou o fornecedor "${f.nome}"`;
+  } else {
+    STATE.fornecedores.push(Object.assign({ id: 'f'+Date.now(), listaNegra: false }, dados));
+    acaoLog = `Cadastrou fornecedor "${dados.nome}"`;
+  }
+
+  await storageSet('fornecedores', STATE.fornecedores, true);
+  await logAction(acaoLog);
+  closeModal('modal-fornecedor');
+  STATE.editingFornecedor = null;
+  renderFornecedores();
+  showToast(acaoLog.startsWith('Editou') ? 'Fornecedor atualizado.' : 'Fornecedor cadastrado.');
+  btn.disabled = false;
+});
+  btnSalvar.textContent = f ? 'Salvar alterações' : 'Salvar';
+  openModal('modal-fornecedor');
+}
 
   const ativos = STATE.fornecedores.filter(f=> !f.listaNegra);
   const negra = STATE.fornecedores.filter(f=> f.listaNegra);
@@ -1809,7 +1880,8 @@ function fornecedorCardHtml(f, emListaNegra){
   const botoes = ro ? '' : (emListaNegra
     ? `<button class="btn" data-remover-negra="${f.id}" style="font-size:12px;padding:6px 10px;margin-top:8px;">Remover da Lista Negra</button>
        <button class="btn primary" data-remover-negra-confirma="${f.id}" style="display:none;font-size:12px;padding:6px 10px;margin-top:8px;">Confirmar remoção?</button>`
-    : `<button class="btn danger" data-lista-negra="${f.id}" style="font-size:12px;padding:6px 10px;margin-top:8px;">Lista Negra</button>
+    : `<button class="btn" data-editar-fornecedor="${f.id}" style="font-size:12px;padding:6px 10px;margin-top:8px;">Editar</button>
+       <button class="btn danger" data-lista-negra="${f.id}" style="font-size:12px;padding:6px 10px;margin-top:8px;">Lista Negra</button>
        <button class="btn danger" data-lista-negra-confirma="${f.id}" style="display:none;font-size:12px;padding:6px 10px;margin-top:8px;">Enviar para a Lista Negra?</button>`);
   return `
     <div class="fornecedor-card" style="${emListaNegra?'border-color:var(--alert-soft);':''}">
@@ -1833,7 +1905,13 @@ function fornecedorCardHtml(f, emListaNegra){
 }
 
 function attachFornecedorCardEvents(){
-  document.querySelectorAll('button[data-lista-negra]').forEach(b=>{
+document.querySelectorAll('button[data-editar-fornecedor]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const f = STATE.fornecedores.find(x=> x.id === b.dataset.editarFornecedor);
+      if(f) openFornecedorModal(f);
+    });
+  });  
+document.querySelectorAll('button[data-lista-negra]').forEach(b=>{
     b.addEventListener('click', ()=>{
       b.style.display = 'none';
       b.parentElement.querySelector(`button[data-lista-negra-confirma="${b.dataset.listaNegra}"]`).style.display = 'inline-block';
