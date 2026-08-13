@@ -1971,7 +1971,7 @@ function renderFornecedores(){
   const gridNegra = document.getElementById('fornecedores-lista-negra');
   document.getElementById('btn-novo-fornecedor').onclick = ()=> openFornecedorModal(null);
 
-function openFornecedorModal(f){
+window.openFornecedorModal = function(f){
   STATE.editingFornecedor = f ? f.id : null;
   document.querySelector('#modal-fornecedor .modal-header h3').textContent = f ? 'Editar fornecedor' : 'Novo fornecedor';
   document.getElementById('forn-nome').value = f ? f.nome : '';
