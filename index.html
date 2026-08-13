@@ -2030,9 +2030,12 @@ btnSalvar.onclick = async (e)=>{
     acaoLog = `Cadastrou fornecedor "${dados.nome}"`;
   }
 
-  await storageSet('fornecedores', STATE.fornecedores, true);
-  await logAction(acaoLog);
-  closeModal('modal-fornecedor');
+  await Promise.all([
+  storageSet('fornecedores', STATE.fornecedores, true),
+  logAction(acaoLog)
+]);
+
+closeModal('modal-fornecedor');
   STATE.editingFornecedor = null;
   renderFornecedores();
   showToast(acaoLog.startsWith('Editou') ? 'Fornecedor atualizado.' : 'Fornecedor cadastrado.');
