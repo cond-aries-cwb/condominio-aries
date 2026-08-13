@@ -2140,16 +2140,13 @@ function renderRateios(){
   botoesWrap.innerHTML = isReadOnly() ? '' : opcoes.map(c=> `<button class="btn" data-rat-cat="${c}" style="min-width:auto;flex:0 1 auto;">${c}</button>`).join('');
   botoesWrap.querySelectorAll('button[data-rat-cat]').forEach(b=>{
     b.addEventListener('click', ()=> abrirFormRateio(b.dataset.ratCat));
-  });
 
   if(!document.getElementById('rat-inicio').value) document.getElementById('rat-inicio').value = comp;
 }
 
 function abrirFormRateio(categoria){
   document.getElementById('rateio-form-area').style.display = 'block';
-
   const descInput = document.getElementById('rat-descricao');
-
   if(categoria === 'Outras'){
     descInput.value = '';
     descInput.disabled = false;
@@ -2158,14 +2155,12 @@ function abrirFormRateio(categoria){
     descInput.value = categoria;
     descInput.disabled = true;
   }
-
   document.getElementById('rat-valor').value = '';
   document.getElementById('rat-parcelas').value = '';
   document.getElementById('rat-inicio').value = STATE.config.competenciaAtual;
   document.getElementById('rat-valor').focus();
-
-  showToast('Nova sessão de rateio pronta para preencher.');
 }
+
 document.getElementById('btn-add-rateio').addEventListener('click', async (e)=>{
   const btn = e.currentTarget;
   const descricao = document.getElementById('rat-descricao').value.trim();
