@@ -2136,12 +2136,15 @@ function renderRateios(){
   }
 
   const botoesWrap = document.getElementById('rateio-categoria-botoes');
-  const opcoes = [...CATEGORIAS_RATEIO, 'Outras'];
-  botoesWrap.innerHTML = isReadOnly() ? '' : opcoes.map(c=> `<button class="btn" data-rat-cat="${c}" style="min-width:auto;flex:0 1 auto;">${c}</button>`).join('');
-  botoesWrap.querySelectorAll('button[data-rat-cat]').forEach(b=>{
-    b.addEventListener('click', ()=> abrirFormRateio(b.dataset.ratCat));
+const opcoes = [...CATEGORIAS_RATEIO, 'Outras'];
+botoesWrap.innerHTML = isReadOnly() ? '' : opcoes.map(c=> `<button class="btn" data-rat-cat="${c}" style="min-width:auto;flex:0 1 auto;">${c}</button>`).join('');
 
-  if(!document.getElementById('rat-inicio').value) document.getElementById('rat-inicio').value = comp;
+botoesWrap.querySelectorAll('button[data-rat-cat]').forEach(b=>{
+  b.addEventListener('click', ()=> abrirFormRateio(b.dataset.ratCat));
+}); // <-- Fecha o addEventListener e fecha o forEach
+
+if(!document.getElementById('rat-inicio').value) {
+  document.getElementById('rat-inicio').value = comp;
 }
 
 function abrirFormRateio(categoria){
