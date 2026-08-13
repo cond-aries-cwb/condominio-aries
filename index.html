@@ -624,9 +624,14 @@
 <div class="modal-overlay" id="modal-pagamento">
   <div class="modal">
     <div class="modal-header"><h3 id="modal-pagamento-title">Registrar pagamento</h3><button class="modal-close" data-close="">✕</button></div>
+    <div class="field" id="pg-destinatario-info" style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;"></div>
     <div class="field-row">
-      <div class="field"><label>Valor da taxa condominial (R$)</label><input id="pg-valor-taxa" type="number" step="0.01"></div>
-      <div class="field"><label>Valor do rateio de reforma (R$)</label><input id="pg-valor-rateio" type="number" step="0.01"></div>
+      <div class="field" id="pg-campo-taxa"><label>Valor da taxa condominial (R$)</label><input id="pg-valor-taxa" type="number" step="0.01"></div>
+      <div class="field" id="pg-campo-fundo"><label>Valor do fundo de reserva (R$)</label><input id="pg-valor-fundo" type="number" step="0.01"></div>
+    </div>
+    <div class="field-row">
+      <div class="field" id="pg-campo-rateio"><label>Valor do rateio de reforma (R$)</label><input id="pg-valor-rateio" type="number" step="0.01"></div>
+      <div class="field"></div>
     </div>
     <div class="field" id="pg-rateio-info" style="font-size:12px;color:var(--ink-soft);margin-top:-8px;"></div>
     <div class="field-row">
@@ -661,6 +666,7 @@ let STATE = {
   currentUser: null, // {role, label}
   editingUnidade: null,
 editingPagamento: null,
+editingPagamentoTipo: null,
 editingDespesa: null,
 editingFornecedor: null,
   pcEditMode: null,
@@ -1000,6 +1006,22 @@ function taxaDevidaApto(apto){
   if(u && u.isentoTaxa) return 0;
   return STATE.config.valorTaxaPadrao;
 }
+function fundoDevidoApto(){
+  return Number(STATE.config.valorFundoReservaPadrao) || 0;
+}
+function resolverDestinatarioPagamento(apto, tipo){
+  const u = STATE.unidades[apto] || {};
+  const morador = u.morador || {};
+  const proprietario = u.proprietario || {};
+  const adm = u.administracao || {};
+  if(tipo === 'fundorateio'){
+    if(adm.ehImobiliaria && adm.email){
+      return { nome: adm.nome, email: adm.email, nomeProprietario: proprietario.nome || '' };
+    }
+    return { nome: proprietario.nome, email: proprietario.email, nomeProprietario: proprietario.nome || '' };
+  }
+  return { nome: morador.nome, email: morador.email, nomeProprietario: proprietario.nome || '' };
+}
 
 function parcelaRateioPorApto(comp){
   const ativos = rateiosAtivosNaCompetencia(comp);
@@ -1014,12 +1036,13 @@ function numeroParcelaAtual(r, comp){
 
 function computeSaldos(){
   const base = STATE.config.saldosBase;
-  let recebidoCondominio = 0, recebidoRateio = 0;
+  let recebidoCondominio = 0, recebidoRateio = 0, recebidoFundo = 0;
   Object.values(STATE.pagamentos).forEach(p=>{
     if(!p || !p.pago) return;
-    if(p.valorTaxa !== undefined || p.valorRateio !== undefined){
+    if(p.valorTaxa !== undefined || p.valorRateio !== undefined || p.valorFundo !== undefined){
       recebidoCondominio += (p.valorTaxa||0);
       recebidoRateio += (p.valorRateio||0);
+      recebidoFundo += (p.valorFundo||0);
     } else {
       recebidoCondominio += (p.valorPago||0); // registros antigos, sem separação
     }
@@ -1028,7 +1051,7 @@ function computeSaldos(){
   STATE.despesas.forEach(d=>{ despesasPorCaixa[d.caixa||'condominio'] += (d.valor||0); });
   return {
     condominio: base.condominio + recebidoCondominio - despesasPorCaixa.condominio,
-    fundoReserva: base.fundoReserva - despesasPorCaixa.fundoReserva,
+    fundoReserva: base.fundoReserva + recebidoFundo - despesasPorCaixa.fundoReserva,
     rateioReforma: base.rateioReforma + recebidoRateio - despesasPorCaixa.rateioReforma
   };
 }
@@ -1239,112 +1262,110 @@ function renderPagamento(){
   tbody.innerHTML = '';
   const comp = STATE.config.competenciaAtual;
   const rateioApto = parcelaRateioPorApto(comp);
+  const fundoApto = fundoDevidoApto();
   const liberado = lembretesLiberados(comp);
+
+  const linhas = [];
   for(let i=1;i<=STATE.config.numApartamentos;i++){
     const u = STATE.unidades[i] || {};
+    const temMorador = !!(u.morador && u.morador.nome);
+    if(!temMorador){ linhas.push({apto:i, tipo:null}); continue; }
+    const ehProp = !!u.moradorEhProprietario;
+    const valorTaxaEfetiva = taxaDevidaApto(i);
+    if(ehProp){
+      linhas.push({apto:i, tipo:'completo', valorEsperado: valorTaxaEfetiva + fundoApto + rateioApto});
+    } else {
+      linhas.push({apto:i, tipo:'taxa', valorEsperado: valorTaxaEfetiva});
+      linhas.push({apto:i, tipo:'fundorateio', valorEsperado: fundoApto + rateioApto});
+    }
+  }
+
+  linhas.forEach(l=>{
+    const i = l.apto;
+    const u = STATE.unidades[i] || {};
     const morador = (u.morador && u.morador.nome) || '—';
-    const email = u.morador && u.morador.email;
-    const pagamento = STATE.pagamentos[comp+'_'+i];
-    const isento = !!u.isentoTaxa;
-    const valorTaxa = taxaDevidaApto(i);
-const valorFundoReserva = Number(STATE.config.valorFundoReservaPadrao) || 0;
-const valorEsperado = valorTaxa + valorFundoReserva + rateioApto;
-    const pago = pagamento && pagamento.pago;
     const tr = document.createElement('tr');
+
+    if(!l.tipo){
+      tr.innerHTML = `<td>${i}</td><td>—</td><td class="num">—</td><td><span class="badge no" style="background:var(--bg);color:var(--ink-faint);">Sem cadastro</span></td><td></td><td></td>`;
+      tbody.appendChild(tr);
+      return;
+    }
+
+    const key = l.tipo === 'fundorateio' ? `${comp}_${i}_prop` : `${comp}_${i}`;
+    const pagamento = STATE.pagamentos[key];
+    const pago = pagamento && pagamento.pago;
+    const dest = resolverDestinatarioPagamento(i, l.tipo);
+    const isentoRow = l.valorEsperado <= 0;
+
+    let rotulo, quemPaga;
+    if(l.tipo === 'completo'){ rotulo = 'Taxa + Fundo + Rateio'; quemPaga = morador + (u.isentoTaxa?' ★':''); }
+    else if(l.tipo === 'taxa'){ rotulo = 'Taxa condomínio (inquilino)'; quemPaga = morador + (u.isentoTaxa?' ★':''); }
+    else { rotulo = 'Fundo + Rateio (proprietário)'; quemPaga = dest.nome || '—'; }
+
     let btnLembrar = '';
-    if(isento && rateioApto <= 0){
+    if(isentoRow){
       btnLembrar = `<span style="color:var(--ink-faint);font-size:11.5px;">isento</span>`;
     } else if(!pago && !isReadOnly()){
-      if(!email){
+      if(!dest.email){
         btnLembrar = `<span style="color:var(--ink-faint);font-size:11.5px;">sem e-mail</span>`;
       } else if(!liberado){
         btnLembrar = `<span style="color:var(--ink-faint);font-size:11.5px;">disponível dia 1</span>`;
       } else {
-        btnLembrar = `<button class="btn" data-lembrar="${i}">Lembrar</button><button class="btn" data-lembrar-confirma="${i}" style="display:none;">Confirmar envio?</button>`;
+        btnLembrar = `<button class="btn" data-lembrar="${i}" data-lembrar-tipo="${l.tipo}">Lembrar</button><button class="btn" data-lembrar-confirma="${i}" data-lembrar-confirma-tipo="${l.tipo}" style="display:none;">Confirmar envio?</button>`;
       }
     }
-    let statusBadge;
-    if(isento && rateioApto <= 0) statusBadge = '<span class="badge ok">Isento</span>';
-    else if(pago) statusBadge = '<span class="badge ok">Pago</span>';
-    else statusBadge = '<span class="badge no">Pendente</span>';
-    const ehProprietario = !!u.moradorEhProprietario;
-const nomeProprietario = (u.proprietario && u.proprietario.nome) || '—';
 
-const valorResponsabilidadeMorador = valorTaxa;
-const valorResponsabilidadeProprietario = valorFundoReserva + rateioApto;
+    const statusBadge = isentoRow ? '<span class="badge ok">Isento</span>' : (pago ? '<span class="badge ok">Pago</span>' : '<span class="badge no">Pendente</span>');
 
-const detalheValores = ehProprietario
-  ? `Taxa: ${fmtMoney(valorTaxa)}<br>Fundo: ${fmtMoney(valorFundoReserva)}${rateioApto > 0 ? `<br>Rateio: ${fmtMoney(rateioApto)}` : ''}`
-  : `Morador: ${fmtMoney(valorTaxa)}<br>Proprietário: ${fmtMoney(valorResponsabilidadeProprietario)}`;
-
-tr.innerHTML = `<td>${i}${isento?' <span title="Isento da taxa condominial" style="color:var(--gold);">★</span>':''}</td>
-  <td>${morador}</td>
-  <td class="num">
-    <div style="font-size:12px;line-height:1.5;">${detalheValores}</div>
-    <strong>${fmtMoney(valorEsperado)}</strong>
-  </td>
+    tr.innerHTML = `<td>${i}</td>
+      <td>${quemPaga}<div style="font-size:11px;color:var(--ink-faint);">${rotulo}</div></td>
+      <td class="num"><strong>${fmtMoney(l.valorEsperado)}</strong></td>
       <td>${statusBadge}</td>
-      <td>${(isReadOnly() || (isento && rateioApto<=0)) ? '' : `<button class="btn" data-apto="${i}">${pago?'Editar':'Registrar'}</button>`}</td>
+      <td>${(isReadOnly() || isentoRow) ? '' : `<button class="btn" data-apto="${i}" data-tipo="${l.tipo}">${pago?'Editar':'Registrar'}</button>`}</td>
       <td>${btnLembrar}</td>`;
     tbody.appendChild(tr);
-  }
+  });
+
   tbody.querySelectorAll('button[data-apto]').forEach(b=>{
-    b.addEventListener('click', ()=> openPagamentoModal(parseInt(b.dataset.apto)));
+    b.addEventListener('click', ()=> openPagamentoModal(parseInt(b.dataset.apto), b.dataset.tipo));
   });
   tbody.querySelectorAll('button[data-lembrar]').forEach(b=>{
     b.addEventListener('click', ()=>{
       b.style.display = 'none';
-      b.parentElement.querySelector('button[data-lembrar-confirma]').style.display = 'inline-block';
+      b.parentElement.querySelector(`button[data-lembrar-confirma][data-lembrar-confirma-tipo="${b.dataset.lembrarTipo}"]`).style.display = 'inline-block';
     });
   });
   tbody.querySelectorAll('button[data-lembrar-confirma]').forEach(b=>{
-    b.addEventListener('click', (e)=> enviarLembreteIndividual(parseInt(b.dataset.lembrarConfirma), e.currentTarget));
+    b.addEventListener('click', (e)=> enviarLembreteIndividual(parseInt(b.dataset.lembrarConfirma), b.dataset.lembrarConfirmaTipo, e.currentTarget));
   });
+}
+
 function atualizarVisibilidadeUnidade() {
-
-  const ehProprietario =
-    document.getElementById('un-eh-prop-sim').checked;
-
-  const temImobiliaria =
-    document.getElementById('un-adm-imob-sim').checked;
-
-  // Se o morador é o proprietário,
-  // não precisamos mostrar proprietário nem administração.
-  document.getElementById('bloco-proprietario').style.display =
-    ehProprietario ? 'none' : 'block';
-
-  document.getElementById('bloco-administracao').style.display =
-    ehProprietario ? 'none' : 'block';
-
-  // Se não há imobiliária, escondemos somente
-  // os dados da imobiliária.
-  document.getElementById('bloco-dados-imobiliaria').style.display =
-    (!ehProprietario && temImobiliaria) ? 'block' : 'none';
+  const ehProprietario = document.getElementById('un-eh-prop-sim').checked;
+  const temImobiliaria = document.getElementById('un-adm-imob-sim').checked;
+  document.getElementById('bloco-proprietario').style.display = ehProprietario ? 'none' : 'block';
+  document.getElementById('bloco-administracao').style.display = ehProprietario ? 'none' : 'block';
+  document.getElementById('bloco-dados-imobiliaria').style.display = (!ehProprietario && temImobiliaria) ? 'block' : 'none';
 }
+document.querySelectorAll('input[name="un-eh-prop"]').forEach(r => { r.onchange = atualizarVisibilidadeUnidade; });
+document.querySelectorAll('input[name="un-adm-imobiliaria"]').forEach(r => { r.onchange = atualizarVisibilidadeUnidade; });
 
-
-// Morador é proprietário?
-document.querySelectorAll('input[name="un-eh-prop"]').forEach(r => {
-  r.addEventListener('change', atualizarVisibilidadeUnidade);
-});
-
-
-// Administração por imobiliária?
-document.querySelectorAll('input[name="un-adm-imobiliaria"]').forEach(r => {
-  r.addEventListener('change', atualizarVisibilidadeUnidade);
-});
-}
-
-async function enviarLembreteIndividual(apto, btn){
+async function enviarLembreteIndividual(apto, tipo, btn){
   btn.disabled = true;
   btn.textContent = 'Enviando...';
   const comp = STATE.config.competenciaAtual;
-  const u = STATE.unidades[apto] || {};
+  const dest = resolverDestinatarioPagamento(apto, tipo);
+  const taxaDevida = taxaDevidaApto(apto);
   const rateioApto = parcelaRateioPorApto(comp);
-  const valorEsperado = taxaDevidaApto(apto) + rateioApto;
+  const fundoApto = fundoDevidoApto();
+  let valorEsperado = 0;
+  if(tipo === 'completo') valorEsperado = taxaDevida + fundoApto + rateioApto;
+  else if(tipo === 'taxa') valorEsperado = taxaDevida;
+  else valorEsperado = fundoApto + rateioApto;
   try{
     const r = await apiCall('enviarLembretes', { params: {
-      lista: [{ apto, nome: u.morador.nome, email: u.morador.email, valor: valorEsperado }],
+      lista: [{ apto, tipo, nome: dest.nome, email: dest.email, valor: valorEsperado }],
       config: STATE.config.dadosBancarios,
       nomeCondominio: STATE.config.nomeCondominio,
       referencia: comp,
@@ -1352,7 +1373,7 @@ async function enviarLembreteIndividual(apto, btn){
     }});
     if(r.ok && r.enviados > 0){
       showToast(`Lembrete enviado ao Apto ${apto}.`);
-      await logAction(`Enviou lembrete de pagamento ao Apto ${apto}`);
+      await logAction(`Enviou lembrete de pagamento ao Apto ${apto} (${tipo})`);
       btn.textContent = 'Enviado ✓';
     } else {
       showToast('Não foi possível enviar o lembrete.');
@@ -1367,32 +1388,60 @@ async function enviarLembreteIndividual(apto, btn){
 
 function atualizarTotalPagamento(){
   const taxa = parseFloat(document.getElementById('pg-valor-taxa').value)||0;
+  const fundo = parseFloat(document.getElementById('pg-valor-fundo').value)||0;
   const rateio = parseFloat(document.getElementById('pg-valor-rateio').value)||0;
-  document.getElementById('pg-valor-total').value = (taxa+rateio).toFixed(2);
+  document.getElementById('pg-valor-total').value = (taxa+fundo+rateio).toFixed(2);
 }
 document.getElementById('pg-valor-taxa').addEventListener('input', atualizarTotalPagamento);
+document.getElementById('pg-valor-fundo').addEventListener('input', atualizarTotalPagamento);
 document.getElementById('pg-valor-rateio').addEventListener('input', atualizarTotalPagamento);
 
-function openPagamentoModal(apto){
+function openPagamentoModal(apto, tipo){
+  tipo = tipo || 'completo';
   STATE.editingPagamento = apto;
+  STATE.editingPagamentoTipo = tipo;
   const comp = STATE.config.competenciaAtual;
-  const pagamento = STATE.pagamentos[comp+'_'+apto] || {};
-  document.getElementById('modal-pagamento-title').textContent = `Registrar pagamento — Apto ${apto}`;
-  const rateioSugerido = parcelaRateioPorApto(comp);
-  const valorTaxa = (pagamento.valorTaxa !== undefined) ? pagamento.valorTaxa
-    : (pagamento.valorPago !== undefined ? pagamento.valorPago : taxaDevidaApto(apto));
-  const valorRateio = (pagamento.valorRateio !== undefined) ? pagamento.valorRateio : rateioSugerido;
-  document.getElementById('pg-valor-taxa').value = valorTaxa;
-  document.getElementById('pg-valor-rateio').value = valorRateio;
-  atualizarTotalPagamento();
-  const ativos = rateiosAtivosNaCompetencia(comp);
-  document.getElementById('pg-rateio-info').textContent = ativos.length
-    ? ativos.map(r=>`${r.descricao}: parcela ${numeroParcelaAtual(r,comp)}/${r.numParcelas}`).join(' · ')
-    : 'Nenhum rateio de reforma ativo nesta competência.';
+  const key = tipo === 'fundorateio' ? `${comp}_${apto}_prop` : `${comp}_${apto}`;
+  const pagamento = STATE.pagamentos[key] || {};
   const u = STATE.unidades[apto] || {};
-  if(u.isentoTaxa){
-    document.getElementById('pg-rateio-info').innerHTML += `<br><span style="color:var(--gold);">★ Este apartamento é isento da taxa condominial${u.isentoMotivo ? ' — '+u.isentoMotivo : ''}.</span>`;
+  const dest = resolverDestinatarioPagamento(apto, tipo);
+
+  const titulos = {
+    completo: `Registrar pagamento — Apto ${apto} (Taxa + Fundo + Rateio)`,
+    taxa: `Registrar pagamento — Apto ${apto} (Taxa condomínio — inquilino)`,
+    fundorateio: `Registrar pagamento — Apto ${apto} (Fundo + Rateio — proprietário)`
+  };
+  document.getElementById('modal-pagamento-title').textContent = titulos[tipo];
+
+  const rateioSugerido = parcelaRateioPorApto(comp);
+  const fundoSugerido = fundoDevidoApto();
+  const taxaSugerida = taxaDevidaApto(apto);
+
+  document.getElementById('pg-campo-taxa').style.display = (tipo === 'fundorateio') ? 'none' : 'block';
+  document.getElementById('pg-campo-fundo').style.display = (tipo === 'taxa') ? 'none' : 'block';
+  document.getElementById('pg-campo-rateio').style.display = (tipo === 'taxa') ? 'none' : 'block';
+
+  document.getElementById('pg-valor-taxa').value = (pagamento.valorTaxa !== undefined) ? pagamento.valorTaxa
+    : (tipo === 'fundorateio' ? 0 : taxaSugerida);
+  document.getElementById('pg-valor-fundo').value = (pagamento.valorFundo !== undefined) ? pagamento.valorFundo
+    : (tipo === 'taxa' ? 0 : fundoSugerido);
+  document.getElementById('pg-valor-rateio').value = (pagamento.valorRateio !== undefined) ? pagamento.valorRateio
+    : (tipo === 'taxa' ? 0 : rateioSugerido);
+  atualizarTotalPagamento();
+
+  const ativos = rateiosAtivosNaCompetencia(comp);
+  let infoRateio = (tipo === 'taxa') ? '' : (ativos.length
+    ? ativos.map(r=>`${r.descricao}: parcela ${numeroParcelaAtual(r,comp)}/${r.numParcelas}`).join(' · ')
+    : 'Nenhum rateio de reforma ativo nesta competência.');
+  if(u.isentoTaxa && tipo !== 'fundorateio'){
+    infoRateio += `<br><span style="color:var(--gold);">★ Este apartamento é isento da taxa condominial${u.isentoMotivo ? ' — '+u.isentoMotivo : ''}.</span>`;
   }
+  document.getElementById('pg-rateio-info').innerHTML = infoRateio;
+
+  document.getElementById('pg-destinatario-info').innerHTML = dest.email
+    ? `Recibo será enviado para: <b>${dest.nome||'—'}</b> (${dest.email})${tipo==='fundorateio' && dest.nomeProprietario && dest.nome!==dest.nomeProprietario ? ' — em nome de '+dest.nomeProprietario : ''}`
+    : `<span style="color:var(--alert);">Sem e-mail cadastrado para o destinatário deste recibo.</span>`;
+
   document.getElementById('pg-data').value = pagamento.dataPagamento || new Date().toISOString().slice(0,10);
   document.getElementById('pg-forma').value = pagamento.forma || 'PIX';
   const btnCancelar = document.getElementById('btn-cancelar-pagamento');
@@ -1405,13 +1454,12 @@ function openPagamentoModal(apto){
   btnConfirmarEtapa2.style.display = 'none';
 
   const reciboArea = document.getElementById('pg-recibo-area');
-  const email = u.morador && u.morador.email;
   if(pagamento.pago && !isReadOnly()){
-    reciboArea.innerHTML = email
-      ? `<button class="btn" id="btn-enviar-recibo">✉️ Enviar recibo por e-mail (${email})</button>`
-      : `<div class="login-hint" style="text-align:left;">Cadastre o e-mail do morador na ficha da unidade para poder enviar o recibo.</div>`;
-    if(email){
-      document.getElementById('btn-enviar-recibo').addEventListener('click', (e)=> enviarRecibo(apto, e.currentTarget));
+    reciboArea.innerHTML = dest.email
+      ? `<button class="btn" id="btn-enviar-recibo">✉️ Enviar recibo por e-mail (${dest.email})</button>`
+      : `<div class="login-hint" style="text-align:left;">Cadastre o e-mail do destinatário para poder enviar o recibo.</div>`;
+    if(dest.email){
+      document.getElementById('btn-enviar-recibo').addEventListener('click', (e)=> enviarRecibo(apto, tipo, e.currentTarget));
     }
   } else {
     reciboArea.innerHTML = '';
@@ -1420,18 +1468,22 @@ function openPagamentoModal(apto){
   openModal('modal-pagamento');
 }
 
-async function enviarRecibo(apto, btn){
+async function enviarRecibo(apto, tipo, btn){
   btn.disabled = true;
   const original = btn.textContent;
   btn.textContent = 'Enviando...';
   const comp = STATE.config.competenciaAtual;
-  const pagamento = STATE.pagamentos[comp+'_'+apto];
-  const u = STATE.unidades[apto] || {};
+  const key = tipo === 'fundorateio' ? `${comp}_${apto}_prop` : `${comp}_${apto}`;
+  const pagamento = STATE.pagamentos[key];
+  const dest = resolverDestinatarioPagamento(apto, tipo);
   try{
     const r = await apiCall('enviarRecibo', { params: {
-      email: u.morador.email,
-      nome: u.morador.nome,
+      tipo,
+      email: dest.email,
+      nome: dest.nome,
+      nomeProprietario: dest.nomeProprietario,
       apto, referencia: comp,
+      valorTaxa: pagamento.valorTaxa, valorFundo: pagamento.valorFundo, valorRateio: pagamento.valorRateio,
       valor: pagamento.valorPago,
       data: pagamento.dataPagamento,
       forma: pagamento.forma,
@@ -1439,7 +1491,7 @@ async function enviarRecibo(apto, btn){
     }});
     if(r.ok){
       showToast('Recibo enviado por e-mail.');
-      await logAction(`Enviou recibo por e-mail ao Apto ${apto}`);
+      await logAction(`Enviou recibo por e-mail ao Apto ${apto} (${tipo})`);
       btn.textContent = 'Enviado ✓';
     } else {
       showToast('Não foi possível enviar: ' + (r.motivo||'erro desconhecido'));
@@ -1474,8 +1526,9 @@ document.getElementById('btn-cancelar-pagamento').addEventListener('click', (e)=
 
 document.getElementById('btn-cancelar-pagamento-confirma').addEventListener('click', async (e)=>{
   const apto = STATE.editingPagamento;
+  const tipo = STATE.editingPagamentoTipo || 'completo';
   const comp = STATE.config.competenciaAtual;
-  const key = comp+'_'+apto;
+  const key = tipo === 'fundorateio' ? `${comp}_${apto}_prop` : `${comp}_${apto}`;
   const anterior = STATE.pagamentos[key];
   delete STATE.pagamentos[key];
 
@@ -1497,66 +1550,42 @@ document.getElementById('btn-confirmar-pagamento').addEventListener('click', (e)
 
 document.getElementById('btn-confirmar-pagamento-etapa2').addEventListener('click', async (e)=>{
   const apto = STATE.editingPagamento;
+  const tipo = STATE.editingPagamentoTipo || 'completo';
   const comp = STATE.config.competenciaAtual;
-  const key = comp+'_'+apto;
+  const key = tipo === 'fundorateio' ? `${comp}_${apto}_prop` : `${comp}_${apto}`;
   const valorTaxa = parseFloat(document.getElementById('pg-valor-taxa').value)||0;
+  const valorFundo = parseFloat(document.getElementById('pg-valor-fundo').value)||0;
   const valorRateio = parseFloat(document.getElementById('pg-valor-rateio').value)||0;
-  const valor = valorTaxa + valorRateio;
+  const valor = valorTaxa + valorFundo + valorRateio;
   const dataPagamento = document.getElementById('pg-data').value;
-const formaPagamento = document.getElementById('pg-forma').value;
+  const formaPagamento = document.getElementById('pg-forma').value;
+  const dest = resolverDestinatarioPagamento(apto, tipo);
 
-// Mantém eventual histórico já existente
-const registroAnterior = STATE.pagamentos[key];
+  const registroAnterior = STATE.pagamentos[key];
+  const historicoAnterior = registroAnterior && Array.isArray(registroAnterior.pagamentos) ? registroAnterior.pagamentos : [];
 
-const historicoAnterior = registroAnterior && Array.isArray(registroAnterior.pagamentos)
-  ? registroAnterior.pagamentos
-  : (registroAnterior && registroAnterior.pago ? [{
-      id: 'LEGADO-' + Date.now(),
-      pessoaCPF: (STATE.unidades[apto] &&
-                  STATE.unidades[apto].morador &&
-                  STATE.unidades[apto].morador.cpf) || '',
-      nomePessoa: (STATE.unidades[apto] &&
-                   STATE.unidades[apto].morador &&
-                   STATE.unidades[apto].morador.nome) || '',
-      apto: String(apto),
-      tipo: 'legado',
-      valor: registroAnterior.valorPago || 0,
-      data: registroAnterior.dataPagamento || '',
-      forma: registroAnterior.forma || ''
-    }] : []);
+  const novoPagamento = {
+    id: 'PG-' + Date.now(),
+    apto: String(apto),
+    tipo,
+    destinatario: dest.nome || '',
+    valor: valor,
+    data: dataPagamento,
+    forma: formaPagamento
+  };
 
-const novoPagamento = {
-  id: 'PG-' + Date.now(),
-  pessoaCPF: (STATE.unidades[apto] &&
-              STATE.unidades[apto].morador &&
-              STATE.unidades[apto].morador.cpf) || '',
-  nomePessoa: (STATE.unidades[apto] &&
-               STATE.unidades[apto].morador &&
-               STATE.unidades[apto].morador.nome) || '',
-  apto: String(apto),
-  tipo: 'taxa_rateio',
-  valor: valor,
-  data: dataPagamento,
-  forma: formaPagamento
-};
+  STATE.pagamentos[key] = {
+    pago: true,
+    tipo,
+    valorTaxa,
+    valorFundo,
+    valorRateio,
+    valorPago: valor,
+    dataPagamento: dataPagamento,
+    forma: formaPagamento,
+    pagamentos: [...historicoAnterior, novoPagamento]
+  };
 
-STATE.pagamentos[key] = {
-  // Mantemos os campos antigos para não quebrar o restante do sistema
-  pago: true,
-  valorTaxa,
-  valorRateio,
-  valorPago: valor,
-  dataPagamento: dataPagamento,
-  forma: formaPagamento,
-
-  // NOVO: histórico dos pagamentos
-  pagamentos: [
-    ...historicoAnterior,
-    novoPagamento
-  ]
-};
-
-  // Atualiza a tela imediatamente (otimista) — a conferência roda por trás, sem travar a experiência
   closeModal('modal-pagamento');
   renderPagamento();
   renderUnidades();
@@ -1564,20 +1593,28 @@ STATE.pagamentos[key] = {
   showToast('Pagamento registrado.');
 
   storageSet('pagamentos', STATE.pagamentos, true, true).then(()=> verificarPagamentoEmBackground(key, true));
-  logAction(`Registrou pagamento do Apto ${apto} (${fmtMoney(valor)})`);
+  logAction(`Registrou pagamento (${tipo}) do Apto ${apto} (${fmtMoney(valor)})`);
 
-  // Recibo automático — só quando o valor cobre taxa integral + rateio devido (se houver)
   const rateioDevido = parcelaRateioPorApto(comp);
-  const pagouIntegral = Math.abs(valorTaxa - taxaDevidaApto(apto)) < 0.01 && Math.abs(valorRateio - rateioDevido) < 0.01;
-  const u = STATE.unidades[apto] || {};
-  if(pagouIntegral && u.morador && u.morador.email){
+  const fundoDevido = fundoDevidoApto();
+  const taxaDevida = taxaDevidaApto(apto);
+  let esperado = 0;
+  if(tipo === 'completo') esperado = taxaDevida + fundoDevido + rateioDevido;
+  else if(tipo === 'taxa') esperado = taxaDevida;
+  else esperado = fundoDevido + rateioDevido;
+  const pagouIntegral = Math.abs(valor - esperado) < 0.01;
+
+  if(pagouIntegral && dest.email){
     try{
       const r = await apiCall('enviarRecibo', { params: {
-        email: u.morador.email, nome: u.morador.nome, apto, referencia: comp,
-        valor, data: STATE.pagamentos[key].dataPagamento, forma: STATE.pagamentos[key].forma,
+        tipo,
+        email: dest.email, nome: dest.nome, nomeProprietario: dest.nomeProprietario,
+        apto, referencia: comp,
+        valorTaxa, valorFundo, valorRateio, valor,
+        data: STATE.pagamentos[key].dataPagamento, forma: STATE.pagamentos[key].forma,
         nomeCondominio: STATE.config.nomeCondominio
       }});
-      if(r.ok){ logAction(`Recibo enviado automaticamente ao Apto ${apto} (pagamento integral)`); showToast('Pagamento registrado — recibo enviado automaticamente.'); }
+      if(r.ok){ logAction(`Recibo enviado automaticamente ao Apto ${apto} (${tipo})`); showToast('Pagamento registrado — recibo enviado automaticamente.'); }
     }catch(err){ console.error('falha ao enviar recibo automático', err); }
   }
 });
