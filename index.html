@@ -2197,7 +2197,7 @@ document.getElementById('btn-add-rateio').addEventListener('click', async (e)=>{
   renderDashboard();
   showToast('Rateio adicionado e confirmado.');
 });
-
+}
 function renderCentralSeguranca(){
   const wrap = document.getElementById('central-seguranca-wrap');
   if(!STATE.currentUser || STATE.currentUser.role !== 'administrador'){ wrap.innerHTML = ''; return; }
