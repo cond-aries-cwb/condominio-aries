@@ -1502,13 +1502,59 @@ document.getElementById('btn-confirmar-pagamento-etapa2').addEventListener('clic
   const valorTaxa = parseFloat(document.getElementById('pg-valor-taxa').value)||0;
   const valorRateio = parseFloat(document.getElementById('pg-valor-rateio').value)||0;
   const valor = valorTaxa + valorRateio;
-  STATE.pagamentos[key] = {
-    pago: true,
-    valorTaxa, valorRateio,
-    valorPago: valor,
-    dataPagamento: document.getElementById('pg-data').value,
-    forma: document.getElementById('pg-forma').value
-  };
+  const dataPagamento = document.getElementById('pg-data').value;
+const formaPagamento = document.getElementById('pg-forma').value;
+
+// Mantém eventual histórico já existente
+const registroAnterior = STATE.pagamentos[key];
+
+const historicoAnterior = registroAnterior && Array.isArray(registroAnterior.pagamentos)
+  ? registroAnterior.pagamentos
+  : (registroAnterior && registroAnterior.pago ? [{
+      id: 'LEGADO-' + Date.now(),
+      pessoaCPF: (STATE.unidades[apto] &&
+                  STATE.unidades[apto].morador &&
+                  STATE.unidades[apto].morador.cpf) || '',
+      nomePessoa: (STATE.unidades[apto] &&
+                   STATE.unidades[apto].morador &&
+                   STATE.unidades[apto].morador.nome) || '',
+      apto: String(apto),
+      tipo: 'legado',
+      valor: registroAnterior.valorPago || 0,
+      data: registroAnterior.dataPagamento || '',
+      forma: registroAnterior.forma || ''
+    }] : []);
+
+const novoPagamento = {
+  id: 'PG-' + Date.now(),
+  pessoaCPF: (STATE.unidades[apto] &&
+              STATE.unidades[apto].morador &&
+              STATE.unidades[apto].morador.cpf) || '',
+  nomePessoa: (STATE.unidades[apto] &&
+               STATE.unidades[apto].morador &&
+               STATE.unidades[apto].morador.nome) || '',
+  apto: String(apto),
+  tipo: 'taxa_rateio',
+  valor: valor,
+  data: dataPagamento,
+  forma: formaPagamento
+};
+
+STATE.pagamentos[key] = {
+  // Mantemos os campos antigos para não quebrar o restante do sistema
+  pago: true,
+  valorTaxa,
+  valorRateio,
+  valorPago: valor,
+  dataPagamento: dataPagamento,
+  forma: formaPagamento,
+
+  // NOVO: histórico dos pagamentos
+  pagamentos: [
+    ...historicoAnterior,
+    novoPagamento
+  ]
+};
 
   // Atualiza a tela imediatamente (otimista) — a conferência roda por trás, sem travar a experiência
   closeModal('modal-pagamento');
