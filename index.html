@@ -1969,7 +1969,7 @@ function renderPrestacaoContent(){
 function renderFornecedores(){
   const grid = document.getElementById('fornecedores-grid');
   const gridNegra = document.getElementById('fornecedores-lista-negra');
-  document.getElementById('btn-novo-fornecedor').addEventListener('click', ()=> openFornecedorModal(null));
+  document.getElementById('btn-novo-fornecedor').onclick = ()=> openFornecedorModal(null);
 
 function openFornecedorModal(f){
   STATE.editingFornecedor = f ? f.id : null;
@@ -1992,7 +1992,8 @@ function openFornecedorModal(f){
   document.getElementById('forn-numero-conta').value = f ? (f.numeroConta||'') : '';
   document.getElementById('forn-pix').value = f ? (f.pix||'') : '';
   document.getElementById('forn-obs').value = f ? (f.obs||'') : '';
-  document.getElementById('btn-salvar-fornecedor').addEventListener('click', async (e)=>{
+  const btnSalvar = document.getElementById('btn-salvar-fornecedor');
+btnSalvar.onclick = async (e)=>{
   const btn = e.currentTarget;
   if(btn.disabled) return;
   const nome = document.getElementById('forn-nome').value;
@@ -2036,7 +2037,7 @@ function openFornecedorModal(f){
   renderFornecedores();
   showToast(acaoLog.startsWith('Editou') ? 'Fornecedor atualizado.' : 'Fornecedor cadastrado.');
   btn.disabled = false;
-});
+};
   btnSalvar.textContent = f ? 'Salvar alterações' : 'Salvar';
   openModal('modal-fornecedor');
 }
