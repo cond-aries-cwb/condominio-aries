@@ -757,6 +757,21 @@ async function storageSet(key, value, shared, silent){
   }
 }
 
+async function salvarConfigVerificado(){
+  await storageSet('config', STATE.config, true, true);
+  let confirmado = false;
+  const esperado = JSON.stringify(STATE.config.rateios || []);
+  for(let tentativa=0; tentativa<3 && !confirmado; tentativa++){
+    const relido = await storageGet('config', true, null);
+    if(relido && JSON.stringify(relido.rateios || []) === esperado){
+      confirmado = true;
+    } else {
+      await new Promise(r=>setTimeout(r,500));
+    }
+  }
+  return confirmado;
+}
+
 function defaultConfig(){
   return {
     nomeCondominio: "Condomínio Edifício Áries",
@@ -1177,14 +1192,13 @@ document.getElementById('un-prop-cpf').value =
 
 // ADMINISTRAÇÃO DO IMÓVEL
 const adm = u.administracao || {};
-
-console.log('ADM:', adm);
-console.log('sim:', document.getElementById('un-adm-imob-sim'));
-console.log('nao:', document.getElementById('un-adm-imob-nao'));
-console.log('nome:', document.getElementById('un-adm-nome'));
-console.log('tel:', document.getElementById('un-adm-tel'));
-console.log('email:', document.getElementById('un-adm-email'));
-console.log('cnpj:', document.getElementById('un-adm-cnpj'));
+document.getElementById('un-adm-imob-sim').checked = !!adm.ehImobiliaria;
+document.getElementById('un-adm-imob-nao').checked = !adm.ehImobiliaria;
+document.getElementById('un-adm-nome').value = adm.nome || '';
+document.getElementById('un-adm-tel').value = adm.telefone || '';
+document.getElementById('un-adm-email').value = adm.email || '';
+document.getElementById('un-adm-cnpj').value = adm.cnpj || '';
+atualizarVisibilidadeUnidade();
   document.getElementById('un-gar-possui').value = (u.garagem&&u.garagem.possui)||'nao';
   document.getElementById('un-gar-numero').value = (u.garagem&&u.garagem.numero)||'';
   document.getElementById('un-gar-tipo').value = (u.garagem&&u.garagem.tipo)||'cativa';
