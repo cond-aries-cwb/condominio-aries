@@ -1048,6 +1048,15 @@ function numeroParcelaAtual(r, comp){
   const [yB,mB] = comp.split('-').map(Number);
   return (yB-yA)*12 + (mB-mA) + 1;
 }
+function descricaoParcelasRateio(comp){
+  const ativos = rateiosAtivosNaCompetencia(comp);
+  if(ativos.length === 0) return '';
+  if(ativos.length === 1){
+    const r = ativos[0];
+    return `parcela ${numeroParcelaAtual(r, comp)}/${r.numParcelas}`;
+  }
+  return ativos.map(r=> `${r.descricao}: ${numeroParcelaAtual(r,comp)}/${r.numParcelas}`).join('; ');
+}
 
 function computeSaldos(){
   const base = STATE.config.saldosBase;
@@ -1499,6 +1508,7 @@ async function enviarRecibo(apto, tipo, btn){
       apto, referencia: comp,
       valorTaxa: pagamento.valorTaxa, valorFundo: pagamento.valorFundo, valorRateio: pagamento.valorRateio,
       valor: pagamento.valorPago,
+      rateioParcelaInfo: descricaoParcelasRateio(comp),
       data: pagamento.dataPagamento,
       forma: pagamento.forma,
       nomeCondominio: STATE.config.nomeCondominio
@@ -1625,6 +1635,7 @@ document.getElementById('btn-confirmar-pagamento-etapa2').addEventListener('clic
         email: dest.email, nome: dest.nome, nomeProprietario: dest.nomeProprietario,
         apto, referencia: comp,
         valorTaxa, valorFundo, valorRateio, valor,
+        rateioParcelaInfo: descricaoParcelasRateio(comp),
         data: STATE.pagamentos[key].dataPagamento, forma: STATE.pagamentos[key].forma,
         nomeCondominio: STATE.config.nomeCondominio
       }});
