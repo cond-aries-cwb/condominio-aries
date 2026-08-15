@@ -331,6 +331,9 @@
     <div><h2>Fornecedores</h2><p>Prestadores de serviço do condomínio.</p></div>
     <button class="add-btn" id="btn-novo-fornecedor">+ Novo fornecedor</button>
   </div>
+  <div style="margin-bottom:16px;">
+    <input type="text" id="forn-busca" placeholder="🔎 Buscar por nome, contato, telefone, endereço, e-mail..." style="width:100%;max-width:480px;padding:11px 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-size:14px;">
+  </div>
   <div class="grid g3" id="fornecedores-grid"></div>
   <div class="section-heading">Lista Negra</div>
   <div class="login-hint" style="text-align:left;margin-bottom:10px;">Fornecedores aqui ficam fora da lista principal, mas podem ser restaurados a qualquer momento.</div>
@@ -2134,16 +2137,24 @@ closeModal('modal-fornecedor');
   openModal('modal-fornecedor');
 }
 
-  const ativos = STATE.fornecedores.filter(f=> !f.listaNegra);
-  const negra = STATE.fornecedores.filter(f=> f.listaNegra);
+  const termo = (document.getElementById('forn-busca').value || '').trim().toLowerCase();
+  const bate = f => !termo || [
+    f.nome, f.prestadores, f.categoria, f.contato, f.telefone, f.email,
+    f.cnpj, f.endereco, f.banco, f.numeroConta, f.pix, f.obs
+  ].some(campo => campo && String(campo).toLowerCase().includes(termo));
+
+  const ativos = STATE.fornecedores.filter(f=> !f.listaNegra && bate(f));
+  const negra = STATE.fornecedores.filter(f=> f.listaNegra && bate(f));
 
   grid.innerHTML = ativos.length
     ? ativos.map(f=> fornecedorCardHtml(f, false)).join('')
-    : `<div class="empty-state" style="grid-column:1/-1;"><span class="ic">🧰</span>Nenhum fornecedor cadastrado ainda.</div>`;
+    : `<div class="empty-state" style="grid-column:1/-1;"><span class="ic">🧰</span>${termo ? 'Nenhum fornecedor encontrado para essa busca.' : 'Nenhum fornecedor cadastrado ainda.'}</div>`;
 
   gridNegra.innerHTML = negra.length
     ? negra.map(f=> fornecedorCardHtml(f, true)).join('')
-    : `<div class="empty-state" style="grid-column:1/-1;color:var(--ink-faint);">Nenhum fornecedor na lista negra.</div>`;
+    : `<div class="empty-state" style="grid-column:1/-1;color:var(--ink-faint);">${termo ? 'Nenhum fornecedor encontrado nesta lista.' : 'Nenhum fornecedor na lista negra.'}</div>`;
+
+  document.getElementById('forn-busca').oninput = renderFornecedores;
 
   attachFornecedorCardEvents();
 }
@@ -2164,22 +2175,32 @@ function fornecedorCardHtml(f, emListaNegra){
     <div class="fornecedor-card" style="${emListaNegra?'border-color:var(--alert-soft);':''}">
       <h4>${f.nome}${f.prestadores? ' <span style="font-size:11px;color:var(--ink-faint);font-weight:400;">('+f.prestadores+')</span>':''}</h4>
       <div class="cat">${f.categoria||'—'}</div>
-      <div class="row">👤 ${f.contato||'—'}</div>
-      <div class="row">📞 ${f.telefone||'—'}</div>
-      <div class="row">✉️ ${f.email||'—'}</div>
-      <div class="row">🧾 CNPJ: ${f.cnpj||'—'}</div>
-      <div class="row">📍 ${f.endereco||'—'}</div>
-     <div class="row">📅 Cadastrado em: ${f.dataCadastro||'—'}</div>
-      <div class="row">💳 Boleto: ${f.pagamentoBoleto ? 'Sim' : 'Não'}</div>
-      ${!f.pagamentoBoleto ? `
-      <div class="row">🏦 ${f.banco||'—'} — ${f.tipoConta==='poupanca'?'Poupança':'Corrente'} — Conta ${f.numeroConta||'—'}</div>
-      <div class="row">🔑 PIX: ${f.pix||'—'}</div>` : ''}
-      ${f.obs? `<div class="row" style="margin-top:6px;font-style:italic;">${f.obs}</div>`:''}
-      ${botoes}
+      <div class="row" style="font-size:15px;font-weight:600;color:var(--ink);margin-top:6px;">📞 ${f.telefone||'—'}</div>
+      <button class="btn" data-toggle-detalhes="${f.id}" style="width:100%;margin-top:10px;padding:10px;font-size:13px;">Ver detalhes ▾</button>
+      <div class="fornecedor-detalhes" id="forn-detalhes-${f.id}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);">
+        <div class="row">👤 ${f.contato||'—'}</div>
+        <div class="row">✉️ ${f.email||'—'}</div>
+        <div class="row">🧾 CNPJ: ${f.cnpj||'—'}</div>
+        <div class="row">📍 ${f.endereco||'—'}</div>
+        <div class="row">📅 Cadastrado em: ${f.dataCadastro||'—'}</div>
+        <div class="row">💳 Boleto: ${f.pagamentoBoleto ? 'Sim' : 'Não'}</div>
+        ${!f.pagamentoBoleto ? `
+        <div class="row">🏦 ${f.banco||'—'} — ${f.tipoConta==='poupanca'?'Poupança':'Corrente'} — Conta ${f.numeroConta||'—'}</div>
+        <div class="row">🔑 PIX: ${f.pix||'—'}</div>` : ''}
+        ${f.obs? `<div class="row" style="margin-top:6px;font-style:italic;">${f.obs}</div>`:''}
+        ${botoes}
+      </div>
     </div>`;
 }
-
 function attachFornecedorCardEvents(){
+document.querySelectorAll('button[data-toggle-detalhes]').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    const det = document.getElementById('forn-detalhes-'+b.dataset.toggleDetalhes);
+    const aberto = det.style.display !== 'none';
+    det.style.display = aberto ? 'none' : 'block';
+    b.textContent = aberto ? 'Ver detalhes ▾' : 'Ocultar detalhes ▴';
+  });
+});
 document.querySelectorAll('button[data-editar-fornecedor]').forEach(b=>{
     b.addEventListener('click', ()=>{
       const f = STATE.fornecedores.find(x=> x.id === b.dataset.editarFornecedor);
