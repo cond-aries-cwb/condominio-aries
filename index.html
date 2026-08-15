@@ -1185,7 +1185,7 @@ function renderUnidades(){
     }
     const card = document.createElement('div');
     card.className = 'unit-card '+statusClass;
-    card.innerHTML = `<div class="apto-num">Apto ${i}${u.isentoTaxa?' <span style="color:var(--gold);font-size:14px;" title="Isento">★</span>':''}</div><div class="morador-nome">${morador || 'Não cadastrado'}</div><div style="margin-top:4px;">${tagsUnidadeHtml(u)}</div><div class="status-tag">${statusText}</div>`; title="Isento">★</span>':''}</div><div class="morador-nome">${morador || 'Não cadastrado'}</div><div class="status-tag">${statusText}</div>`;
+    card.innerHTML = `<div class="apto-num">Apto ${i}${u.isentoTaxa?' <span style="color:var(--gold);font-size:14px;" title="Isento">★</span>':''}</div><div class="morador-nome">${morador || 'Não cadastrado'}</div><div style="margin-top:4px;">${tagsUnidadeHtml(u)}</div><div class="status-tag">${statusText}</div>`; 
     card.addEventListener('click', ()=> openUnidadeModal(i));
     grid.appendChild(card);
   }
