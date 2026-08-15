@@ -19,6 +19,8 @@
     --alert-soft:#F5E3DD;
     --gold:#B08D3F;
     --gold-soft:#F1E8D6;
+    --blue:#3D6B96;
+    --blue-soft:#E2EBF3;
     --radius:10px;
     --serif:Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Times New Roman', serif;
     --sans:'Segoe UI', Inter, system-ui, -apple-system, sans-serif;
@@ -157,6 +159,11 @@
   .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;}
   .badge.ok{background:var(--accent-soft);color:var(--accent-dark);}
   .badge.no{background:var(--alert-soft);color:var(--alert);}
+
+  .tag{display:inline-block;padding:2px 7px;border-radius:9px;font-size:10.5px;font-weight:600;margin-right:4px;white-space:nowrap;}
+  .tag-verde{background:var(--accent-soft);color:var(--accent-dark);}
+  .tag-azul{background:var(--blue-soft);color:var(--blue);}
+  .tag-amarelo{background:var(--gold-soft);color:#7A5F22;}
 
   .empty-state{text-align:center;padding:40px 20px;color:var(--ink-faint);}
   .empty-state .ic{font-size:28px;margin-bottom:10px;display:block;}
@@ -1024,6 +1031,24 @@ function taxaDevidaApto(apto){
 function fundoDevidoApto(){
   return Number(STATE.config.valorFundoReservaPadrao) || 0;
 }
+function tagsUnidade(u){
+  const tags = [];
+  if(!u || !(u.morador && u.morador.nome)) return tags;
+  if(u.moradorEhProprietario){
+    tags.push({label:'Proprietário', cls:'tag-verde'});
+  } else {
+    tags.push({label:'Morador', cls:'tag-azul'});
+    if(u.administracao && u.administracao.ehImobiliaria){
+      tags.push({label:'Imobiliária', cls:'tag-amarelo'});
+    } else {
+      tags.push({label:'Proprietário', cls:'tag-verde'});
+    }
+  }
+  return tags;
+}
+function tagsUnidadeHtml(u){
+  return tagsUnidade(u).map(t=> `<span class="tag ${t.cls}">${t.label}</span>`).join('');
+}
 function resolverDestinatarioPagamento(apto, tipo){
   const u = STATE.unidades[apto] || {};
   const morador = u.morador || {};
@@ -1160,7 +1185,7 @@ function renderUnidades(){
     }
     const card = document.createElement('div');
     card.className = 'unit-card '+statusClass;
-    card.innerHTML = `<div class="apto-num">Apto ${i}${u.isentoTaxa?' <span style="color:var(--gold);font-size:14px;" title="Isento">★</span>':''}</div><div class="morador-nome">${morador || 'Não cadastrado'}</div><div class="status-tag">${statusText}</div>`;
+    card.innerHTML = `<div class="apto-num">Apto ${i}${u.isentoTaxa?' <span style="color:var(--gold);font-size:14px;" title="Isento">★</span>':''}</div><div class="morador-nome">${morador || 'Não cadastrado'}</div><div style="margin-top:4px;">${tagsUnidadeHtml(u)}</div><div class="status-tag">${statusText}</div>`; title="Isento">★</span>':''}</div><div class="morador-nome">${morador || 'Não cadastrado'}</div><div class="status-tag">${statusText}</div>`;
     card.addEventListener('click', ()=> openUnidadeModal(i));
     grid.appendChild(card);
   }
@@ -1321,10 +1346,17 @@ function renderPagamento(){
     const dest = resolverDestinatarioPagamento(i, l.tipo);
     const isentoRow = l.valorEsperado <= 0;
 
-    let rotulo, quemPaga;
-    if(l.tipo === 'completo'){ rotulo = 'Taxa + Fundo + Rateio'; quemPaga = morador + (u.isentoTaxa?' ★':''); }
-    else if(l.tipo === 'taxa'){ rotulo = 'Taxa condomínio (inquilino)'; quemPaga = morador + (u.isentoTaxa?' ★':''); }
-    else { rotulo = 'Fundo + Rateio (proprietário)'; quemPaga = dest.nome || '—'; }
+    let rotulo, quemPaga, tagHtmlRow;
+    if(l.tipo === 'completo'){
+      rotulo = 'Taxa + Fundo + Rateio'; quemPaga = morador + (u.isentoTaxa?' ★':'');
+      tagHtmlRow = '<span class="tag tag-verde">Proprietário</span>';
+    } else if(l.tipo === 'taxa'){
+      rotulo = 'Taxa condomínio (inquilino)'; quemPaga = morador + (u.isentoTaxa?' ★':'');
+      tagHtmlRow = '<span class="tag tag-azul">Morador</span>';
+    } else {
+      rotulo = 'Fundo + Rateio (proprietário)'; quemPaga = dest.nome || '—';
+      tagHtmlRow = (u.administracao && u.administracao.ehImobiliaria) ? '<span class="tag tag-amarelo">Imobiliária</span>' : '<span class="tag tag-verde">Proprietário</span>';
+    }
 
     let btnLembrar = '';
     if(isentoRow){
@@ -1342,7 +1374,7 @@ function renderPagamento(){
     const statusBadge = isentoRow ? '<span class="badge ok">Isento</span>' : (pago ? '<span class="badge ok">Pago</span>' : '<span class="badge no">Pendente</span>');
 
     tr.innerHTML = `<td>${i}</td>
-      <td>${quemPaga}<div style="font-size:11px;color:var(--ink-faint);">${rotulo}</div></td>
+      <td>${tagHtmlRow} ${quemPaga}<div style="font-size:11px;color:var(--ink-faint);">${rotulo}</div></td>
       <td class="num"><strong>${fmtMoney(l.valorEsperado)}</strong></td>
       <td>${statusBadge}</td>
       <td>${(isReadOnly() || isentoRow) ? '' : `<button class="btn" data-apto="${i}" data-tipo="${l.tipo}">${pago?'Editar':'Registrar'}</button>`}</td>
