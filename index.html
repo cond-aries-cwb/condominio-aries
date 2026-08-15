@@ -2128,6 +2128,7 @@ closeModal('modal-fornecedor');
   renderFornecedores();
   showToast(acaoLog.startsWith('Editou') ? 'Fornecedor atualizado.' : 'Fornecedor cadastrado.');
   btn.disabled = false;
+  btn.textContent = textoOriginalBtn;
 };
   btnSalvar.textContent = f ? 'Salvar alterações' : 'Salvar';
   openModal('modal-fornecedor');
@@ -2151,10 +2152,14 @@ function fornecedorCardHtml(f, emListaNegra){
   const ro = isReadOnly();
   const botoes = ro ? '' : (emListaNegra
     ? `<button class="btn" data-remover-negra="${f.id}" style="font-size:12px;padding:6px 10px;margin-top:8px;">Remover da Lista Negra</button>
-       <button class="btn primary" data-remover-negra-confirma="${f.id}" style="display:none;font-size:12px;padding:6px 10px;margin-top:8px;">Confirmar remoção?</button>`
+       <button class="btn primary" data-remover-negra-confirma="${f.id}" style="display:none;font-size:12px;padding:6px 10px;margin-top:8px;">Confirmar remoção?</button>
+       <button class="btn danger" data-excluir-fornecedor="${f.id}" style="font-size:12px;padding:6px 10px;margin-top:8px;">Excluir</button>
+       <button class="btn danger" data-excluir-fornecedor-confirma="${f.id}" style="display:none;font-size:12px;padding:6px 10px;margin-top:8px;">Excluir de vez?</button>`
     : `<button class="btn" data-editar-fornecedor="${f.id}" style="font-size:12px;padding:6px 10px;margin-top:8px;">Editar</button>
        <button class="btn danger" data-lista-negra="${f.id}" style="font-size:12px;padding:6px 10px;margin-top:8px;">Lista Negra</button>
-       <button class="btn danger" data-lista-negra-confirma="${f.id}" style="display:none;font-size:12px;padding:6px 10px;margin-top:8px;">Enviar para a Lista Negra?</button>`);
+       <button class="btn danger" data-lista-negra-confirma="${f.id}" style="display:none;font-size:12px;padding:6px 10px;margin-top:8px;">Enviar para a Lista Negra?</button>
+       <button class="btn danger" data-excluir-fornecedor="${f.id}" style="font-size:12px;padding:6px 10px;margin-top:8px;">Excluir</button>
+       <button class="btn danger" data-excluir-fornecedor-confirma="${f.id}" style="display:none;font-size:12px;padding:6px 10px;margin-top:8px;">Excluir de vez?</button>`);
   return `
     <div class="fornecedor-card" style="${emListaNegra?'border-color:var(--alert-soft);':''}">
       <h4>${f.nome}${f.prestadores? ' <span style="font-size:11px;color:var(--ink-faint);font-weight:400;">('+f.prestadores+')</span>':''}</h4>
@@ -2207,7 +2212,7 @@ document.querySelectorAll('button[data-lista-negra]').forEach(b=>{
       b.parentElement.querySelector(`button[data-remover-negra-confirma="${b.dataset.removerNegra}"]`).style.display = 'inline-block';
     });
   });
-  document.querySelectorAll('button[data-remover-negra-confirma]').forEach(b=>{
+document.querySelectorAll('button[data-remover-negra-confirma]').forEach(b=>{
     b.addEventListener('click', async (e)=>{
       const btn = e.currentTarget;
       btn.disabled = true;
@@ -2219,6 +2224,25 @@ document.querySelectorAll('button[data-lista-negra]').forEach(b=>{
       await logAction(`Removeu o fornecedor "${f.nome}" da Lista Negra`);
       renderFornecedores();
       showToast('Fornecedor removido da Lista Negra.');
+    });
+  });
+  document.querySelectorAll('button[data-excluir-fornecedor]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      b.style.display = 'none';
+      b.parentElement.querySelector(`button[data-excluir-fornecedor-confirma="${b.dataset.excluirFornecedor}"]`).style.display = 'inline-block';
+    });
+  });
+  document.querySelectorAll('button[data-excluir-fornecedor-confirma]').forEach(b=>{
+    b.addEventListener('click', async (e)=>{
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      const id = btn.dataset.excluirFornecedorConfirma;
+      const f = STATE.fornecedores.find(x=> x.id === id);
+      if(!f) return;
+      STATE.fornecedores = STATE.fornecedores.filter(x=> x.id !== id);
+      renderFornecedores();
+      showToast('Fornecedor excluído.');
+      storageSet('fornecedores', STATE.fornecedores, true).then(()=> logAction(`Excluiu o fornecedor "${f.nome}"`));
     });
   });
 }
