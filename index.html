@@ -112,6 +112,8 @@
   .dot.red{background:var(--alert);}
   .dot.green{background:var(--accent);}
   .dot.gold{background:var(--gold);}
+  .dot.blue{background:var(--blue);}
+  .dot.vinho{background:var(--vinho);}
 
   .log-row{font-size:12.5px;color:var(--ink-soft);padding:7px 0;border-bottom:1px solid var(--line);display:flex;gap:8px;}
   .log-row:last-child{border-bottom:none;}
@@ -122,6 +124,7 @@
   .unit-card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px;cursor:pointer;position:relative;border-top:3px solid var(--ink-faint);transition:.15s;}
   .unit-card:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(38,49,58,0.08);}
   .unit-card.pago{border-top-color:var(--accent);}
+  .unit-card.parcial{border-top-color:var(--gold);}
   .unit-card.pendente{border-top-color:var(--alert);}
   .unit-card.vazio{border-top-color:var(--ink-faint);opacity:.7;}
   .unit-card .apto-num{font-family:var(--serif);font-size:19px;font-weight:600;}
@@ -266,11 +269,7 @@
       <div class="grid g2" style="margin-bottom:22px;">
         <div class="card">
           <div class="stat-label">Situação da competência</div>
-          <div style="display:flex;gap:20px;margin-top:6px;flex-wrap:wrap;">
-            <div><span class="dot red" style="display:inline-block;"></span> <b id="stat-inadimplentes">0</b> inadimplentes</div>
-            <div><span class="dot gold" style="display:inline-block;"></span> <b id="stat-parciais">0</b> pagamento(s) parcial(is)</div>
-            <div><span class="dot green" style="display:inline-block;"></span> <b id="stat-em-dia">0</b> em dia</div>
-          </div>
+          <div id="situacao-competencia-box" style="margin-top:8px;"></div>
           <div id="stat-isentos-lista" style="margin-top:10px;font-size:12.5px;color:var(--ink-soft);"></div>
         </div>
         <div class="card">
@@ -1055,6 +1054,36 @@ function statusPagamentoLinha(valorEsperado, pagamento){
   if(pagamento.pago) return 'pago';
   return 'parcial';
 }
+function categoriaPagamentoLinha(apto, tipo){
+  const u = STATE.unidades[apto] || {};
+  if(tipo === 'completo') return {label:'Morador e Proprietário', cls:'tag-verde', dot:'green'};
+  if(tipo === 'taxa') return {label:'Inquilino', cls:'tag-azul', dot:'blue'};
+  if(u.administracao && u.administracao.ehImobiliaria) return {label:'Imobiliária', cls:'tag-amarelo', dot:'gold'};
+  return {label:'Locador e Proprietário', cls:'tag-vinho', dot:'vinho'};
+}
+function linhasPagamentoCompetencia(comp){
+  const fundoApto = fundoDevidoApto();
+  const rateioApto = parcelaRateioPorApto(comp);
+  const linhas = [];
+  for(let i=1;i<=STATE.config.numApartamentos;i++){
+    const u = STATE.unidades[i] || {};
+    if(!(u.morador && u.morador.nome)) continue;
+    const ehProp = !!u.moradorEhProprietario;
+    const taxaEfetiva = taxaDevidaApto(i);
+    if(ehProp){
+      linhas.push({apto:i, tipo:'completo', valorEsperado: taxaEfetiva + fundoApto + rateioApto});
+    } else {
+      linhas.push({apto:i, tipo:'taxa', valorEsperado: taxaEfetiva});
+      linhas.push({apto:i, tipo:'fundorateio', valorEsperado: fundoApto + rateioApto});
+    }
+  }
+  return linhas.map(l=>{
+    const key = l.tipo === 'fundorateio' ? `${comp}_${l.apto}_prop` : `${comp}_${l.apto}`;
+    const pagamento = STATE.pagamentos[key];
+    const status = statusPagamentoLinha(l.valorEsperado, pagamento);
+    return Object.assign(l, {key, pagamento, status});
+  });
+}
 function resolverDestinatarioPagamento(apto, tipo){
   const u = STATE.unidades[apto] || {};
   const morador = u.morador || {};
@@ -1103,7 +1132,7 @@ function computeSaldos(){
   const base = STATE.config.saldosBase;
   let recebidoCondominio = 0, recebidoRateio = 0, recebidoFundo = 0;
   Object.values(STATE.pagamentos).forEach(p=>{
-    if(!p || !p.pago) return;
+    if(!p || !p.valorPago) return; // conta tudo que foi efetivamente recebido, mesmo pagamento parcial
     if(p.valorTaxa !== undefined || p.valorRateio !== undefined || p.valorFundo !== undefined){
       recebidoCondominio += (p.valorTaxa||0);
       recebidoRateio += (p.valorRateio||0);
@@ -1129,35 +1158,43 @@ function renderDashboard(){
   document.getElementById('stat-saldo-rateio').textContent = fmtMoney(s.rateioReforma);
 
   const comp = STATE.config.competenciaAtual;
-  const rateioAtualApto = parcelaRateioPorApto(comp);
-  const fundoApto = fundoDevidoApto();
-  const linhasPag = [];
-  for(let i=1;i<=STATE.config.numApartamentos;i++){
-    const u = STATE.unidades[i] || {};
-    if(!(u.morador && u.morador.nome)) continue;
-    const ehProp = !!u.moradorEhProprietario;
-    const taxaEfetiva = taxaDevidaApto(i);
-    if(ehProp){
-      linhasPag.push({apto:i, tipo:'completo', valorEsperado: taxaEfetiva + fundoApto + rateioAtualApto});
-    } else {
-      linhasPag.push({apto:i, tipo:'taxa', valorEsperado: taxaEfetiva});
-      linhasPag.push({apto:i, tipo:'fundorateio', valorEsperado: fundoApto + rateioAtualApto});
-    }
-  }
-  let pagos=0, pendentes=0, isentos=0, parciais=0;
+  const linhasPag = linhasPagamentoCompetencia(comp);
+  let pendentes=0;
   const alertasParciais = [];
+  const porCategoria = {};
   linhasPag.forEach(l=>{
-    const key = l.tipo === 'fundorateio' ? `${comp}_${l.apto}_prop` : `${comp}_${l.apto}`;
-    const pagamento = STATE.pagamentos[key];
-    const status = statusPagamentoLinha(l.valorEsperado, pagamento);
-    if(status === 'isento') isentos++;
-    else if(status === 'pago') pagos++;
-    else if(status === 'parcial'){ parciais++; alertasParciais.push({apto:l.apto, tipo:l.tipo, valorEsperado:l.valorEsperado, valorPago: pagamento.valorPago}); }
-    else pendentes++;
+    const cat = categoriaPagamentoLinha(l.apto, l.tipo);
+    if(!porCategoria[cat.label]) porCategoria[cat.label] = {dot: cat.dot, pago:0, parcial:0, pendente:0};
+    if(l.status === 'isento') return;
+    if(l.status === 'pago') porCategoria[cat.label].pago++;
+    else if(l.status === 'parcial'){
+      porCategoria[cat.label].parcial++;
+      alertasParciais.push({apto:l.apto, tipo:l.tipo, valorEsperado:l.valorEsperado, valorPago: l.pagamento.valorPago});
+    } else { pendentes++; porCategoria[cat.label].pendente++; }
   });
-  document.getElementById('stat-em-dia').textContent = pagos;
-  document.getElementById('stat-parciais').textContent = parciais;
-  document.getElementById('stat-inadimplentes').textContent = pendentes;
+  const situacaoBox = document.getElementById('situacao-competencia-box');
+  const categorias = Object.keys(porCategoria);
+  situacaoBox.innerHTML = categorias.length ? `
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+      <thead><tr style="color:var(--ink-faint);text-transform:uppercase;font-size:10.5px;">
+        <th style="text-align:left;padding:4px 0;">Categoria</th>
+        <th class="num" style="padding:4px 0;">Em dia</th>
+        <th class="num" style="padding:4px 0;">Parcial</th>
+        <th class="num" style="padding:4px 0;">Pendente</th>
+      </tr></thead>
+      <tbody>
+        ${categorias.map(label=>{
+          const c = porCategoria[label];
+          return `<tr style="border-top:1px solid var(--line);">
+            <td style="padding:6px 0;"><span class="dot ${c.dot}" style="display:inline-block;margin-right:6px;"></span>${label}</td>
+            <td class="num">${c.pago}</td>
+            <td class="num" style="${c.parcial>0?'color:#7A5F22;font-weight:600;':''}">${c.parcial}</td>
+            <td class="num" style="${c.pendente>0?'color:var(--alert);font-weight:600;':''}">${c.pendente}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  ` : '<div style="color:var(--ink-faint);">Nenhuma unidade cadastrada ainda.</div>';
 
   const isentosLista = document.getElementById('stat-isentos-lista');
   const listaIsentos = [];
@@ -1211,20 +1248,31 @@ function renderUnidades(){
   const grid = document.getElementById('unit-grid');
   grid.innerHTML = '';
   const comp = STATE.config.competenciaAtual;
-  const rateioAtualApto = parcelaRateioPorApto(comp);
+  const linhasPag = linhasPagamentoCompetencia(comp);
   for(let i=1;i<=STATE.config.numApartamentos;i++){
     const u = STATE.unidades[i] || {};
     const morador = u.morador && u.morador.nome ? u.morador.nome : null;
-    const pagamento = STATE.pagamentos[comp+'_'+i];
+    const linhasApto = linhasPag.filter(l=> l.apto === i);
     let statusClass = 'vazio', statusText = 'Sem cadastro';
     if(morador){
-      if(u.isentoTaxa && rateioAtualApto <= 0){ statusClass='pago'; statusText='★ Isento'; }
-      else if(pagamento && pagamento.pago){ statusClass='pago'; statusText='🟢 Em dia'; }
-      else { statusClass='pendente'; statusText='🔴 Pendente'; }
+      if(linhasApto.length === 0 || linhasApto.every(l=> l.status === 'isento')){
+        statusClass='pago'; statusText='★ Isento';
+      } else if(linhasApto.every(l=> l.status === 'pago' || l.status === 'isento')){
+        statusClass='pago'; statusText='🟢 Em dia';
+      } else if(linhasApto.some(l=> l.status === 'parcial')){
+        statusClass='parcial';
+        const partes = linhasApto.filter(l=> l.status==='parcial').map(l=>{
+          const rot = l.tipo==='taxa' ? 'taxa' : (l.tipo==='fundorateio' ? 'fundo/rateio' : '');
+          return `${rot?rot+': ':''}${fmtMoney(l.pagamento.valorPago)}`;
+        }).join(' · ');
+        statusText = `🟡 Pgto parcial (${partes})`;
+      } else {
+        statusClass='pendente'; statusText='🔴 Pendente';
+      }
     }
     const card = document.createElement('div');
     card.className = 'unit-card '+statusClass;
-    card.innerHTML = `<div class="apto-num">Apto ${i}${u.isentoTaxa?' <span style="color:var(--gold);font-size:14px;" title="Isento">★</span>':''}</div><div class="morador-nome">${morador || 'Não cadastrado'}</div><div style="margin-top:4px;">${tagsUnidadeHtml(u)}</div><div class="status-tag">${statusText}</div>`; 
+    card.innerHTML = `<div class="apto-num">Apto ${i}${u.isentoTaxa?' <span style="color:var(--gold);font-size:14px;" title="Isento">★</span>':''}</div><div class="morador-nome">${morador || 'Não cadastrado'}</div><div style="margin-top:4px;">${tagsUnidadeHtml(u)}</div><div class="status-tag">${statusText}</div>`;
     card.addEventListener('click', ()=> openUnidadeModal(i));
     grid.appendChild(card);
   }
@@ -1858,8 +1906,11 @@ b.parentElement.querySelector(`button[data-excluir-despesa-confirma="${b.dataset
 });
 });
 tbody.querySelectorAll('button[data-excluir-despesa-confirma]').forEach(b=>{
-b.addEventListener('click', ()=>{
-const id = b.dataset.excluirDespesaConfirma;
+b.addEventListener('click', async (e)=>{
+const btn = e.currentTarget;
+btn.disabled = true;
+btn.textContent = 'Excluindo...';
+const id = btn.dataset.excluirDespesaConfirma;
 const despesa = STATE.despesas.find(x=> x.id === id);
 STATE.despesas = STATE.despesas.filter(x=> x.id !== id);
 
@@ -2348,10 +2399,11 @@ document.querySelectorAll('button[data-lista-negra]').forEach(b=>{
       b.parentElement.querySelector(`button[data-lista-negra-confirma="${b.dataset.listaNegra}"]`).style.display = 'inline-block';
     });
   });
-  document.querySelectorAll('button[data-lista-negra-confirma]').forEach(b=>{
+ document.querySelectorAll('button[data-lista-negra-confirma]').forEach(b=>{
     b.addEventListener('click', async (e)=>{
       const btn = e.currentTarget;
       btn.disabled = true;
+      btn.textContent = 'Enviando...';
       const id = btn.dataset.listaNegraConfirma;
       const f = STATE.fornecedores.find(x=> x.id === id);
       if(!f) return;
@@ -2372,6 +2424,7 @@ document.querySelectorAll('button[data-remover-negra-confirma]').forEach(b=>{
     b.addEventListener('click', async (e)=>{
       const btn = e.currentTarget;
       btn.disabled = true;
+      btn.textContent = 'Removendo...';
       const id = btn.dataset.removerNegraConfirma;
       const f = STATE.fornecedores.find(x=> x.id === id);
       if(!f) return;
@@ -2433,6 +2486,7 @@ function renderRateios(){
       b.addEventListener('click', async (e)=>{
         const btn = e.currentTarget;
         btn.disabled = true;
+        btn.textContent = 'Removendo...';
         const i = parseInt(btn.dataset.removeRateio);
         const removido = STATE.config.rateios[i];
         STATE.config.rateios.splice(i,1);
