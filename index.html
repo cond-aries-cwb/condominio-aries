@@ -1421,6 +1421,48 @@ function atualizarVisibilidadeUnidade() {
 document.querySelectorAll('input[name="un-eh-prop"]').forEach(r => { r.onchange = atualizarVisibilidadeUnidade; });
 document.querySelectorAll('input[name="un-adm-imobiliaria"]').forEach(r => { r.onchange = atualizarVisibilidadeUnidade; });
 
+async function baixarReciboPDF(apto, tipo, btn){
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = 'Gerando...';
+  const comp = STATE.config.competenciaAtual;
+  const key = tipo === 'fundorateio' ? `${comp}_${apto}_prop` : `${comp}_${apto}`;
+  const pagamento = STATE.pagamentos[key];
+  const dest = resolverDestinatarioPagamento(apto, tipo);
+  try{
+    const r = await apiCall('gerarReciboPDF', { params: {
+      tipo,
+      nome: dest.nome,
+      nomeProprietario: dest.nomeProprietario,
+      apto, referencia: comp,
+      valorTaxa: pagamento.valorTaxa, valorFundo: pagamento.valorFundo, valorRateio: pagamento.valorRateio,
+      valor: pagamento.valorPago,
+      rateiosDetalhe: detalhesRateiosAtivos(comp),
+      data: pagamento.dataPagamento,
+      forma: pagamento.forma,
+      nomeCondominio: STATE.config.nomeCondominio
+    }});
+    if(r.ok && r.pdfBase64){
+      const link = document.createElement('a');
+      link.href = 'data:application/pdf;base64,' + r.pdfBase64;
+      link.download = r.nomeArquivo || `Recibo_Apto${apto}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast('Recibo em PDF baixado.');
+      await logAction(`Baixou o recibo em PDF do Apto ${apto} (${tipo})`);
+      btn.textContent = 'Baixado ✓';
+    } else {
+      showToast('Não foi possível gerar o PDF: ' + (r.motivo||'erro desconhecido'));
+      btn.disabled = false; btn.textContent = original;
+    }
+  }catch(e){
+    console.error(e);
+    showToast('⚠ Erro ao gerar o PDF. Tente novamente.');
+    btn.disabled = false; btn.textContent = original;
+  }
+}
+
 async function enviarLembreteIndividual(apto, tipo, btn){
   btn.disabled = true;
   btn.textContent = 'Enviando...';
@@ -1527,9 +1569,11 @@ function openPagamentoModal(apto, tipo){
   if(pagamento.pago && !isReadOnly()){
     reciboArea.innerHTML = dest.email
       ? `<button class="btn" id="btn-enviar-recibo">✉️ Enviar recibo por e-mail (${dest.email})</button>`
-      : `<div class="login-hint" style="text-align:left;">Cadastre o e-mail do destinatário para poder enviar o recibo.</div>`;
+      : `<button class="btn" id="btn-baixar-recibo">🖨️ Baixar recibo em PDF (sem e-mail cadastrado)</button>`;
     if(dest.email){
       document.getElementById('btn-enviar-recibo').addEventListener('click', (e)=> enviarRecibo(apto, tipo, e.currentTarget));
+    } else {
+      document.getElementById('btn-baixar-recibo').addEventListener('click', (e)=> baixarReciboPDF(apto, tipo, e.currentTarget));
     }
   } else {
     reciboArea.innerHTML = '';
