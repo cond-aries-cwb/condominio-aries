@@ -1034,13 +1034,13 @@ function tagsUnidade(u){
   const tags = [];
   if(!u || !(u.morador && u.morador.nome)) return tags;
   if(u.moradorEhProprietario){
-    tags.push({label:'Proprietário', cls:'tag-verde'});
+    tags.push({label:'Morador e Proprietário', cls:'tag-verde'});
   } else {
-    tags.push({label:'Morador', cls:'tag-azul'});
+    tags.push({label:'Inquilino', cls:'tag-azul'});
     if(u.administracao && u.administracao.ehImobiliaria){
       tags.push({label:'Imobiliária', cls:'tag-amarelo'});
     } else {
-      tags.push({label:'Proprietário', cls:'tag-verde'});
+      tags.push({label:'Proprietário e Locador', cls:'tag-verde'});
     }
   }
   return tags;
@@ -1358,13 +1358,13 @@ function renderPagamento(){
     let rotulo, quemPaga, tagHtmlRow;
     if(l.tipo === 'completo'){
       rotulo = 'Taxa + Fundo + Rateio'; quemPaga = morador + (u.isentoTaxa?' ★':'');
-      tagHtmlRow = '<span class="tag tag-verde">Proprietário</span>';
+      tagHtmlRow = '<span class="tag tag-verde">Morador e Proprietário</span>';
     } else if(l.tipo === 'taxa'){
       rotulo = 'Taxa condomínio (inquilino)'; quemPaga = morador + (u.isentoTaxa?' ★':'');
-      tagHtmlRow = '<span class="tag tag-azul">Morador</span>';
+      tagHtmlRow = '<span class="tag tag-azul">Inquilino</span>';
     } else {
-      rotulo = 'Fundo + Rateio (proprietário)'; quemPaga = dest.nome || '—';
-      tagHtmlRow = (u.administracao && u.administracao.ehImobiliaria) ? '<span class="tag tag-amarelo">Imobiliária</span>' : '<span class="tag tag-verde">Proprietário</span>';
+      rotulo = 'Fundo + Rateio (locador)'; quemPaga = dest.nome || '—';
+      tagHtmlRow = (u.administracao && u.administracao.ehImobiliaria) ? '<span class="tag tag-amarelo">Imobiliária</span>' : '<span class="tag tag-verde">Proprietário e Locador</span>';
     }
 
     let btnLembrar = '';
@@ -1473,7 +1473,7 @@ function openPagamentoModal(apto, tipo){
   const titulos = {
     completo: `Registrar pagamento — Apto ${apto} (Taxa + Fundo + Rateio)`,
     taxa: `Registrar pagamento — Apto ${apto} (Taxa condomínio — inquilino)`,
-    fundorateio: `Registrar pagamento — Apto ${apto} (Fundo + Rateio — proprietário)`
+    fundorateio: `Registrar pagamento — Apto ${apto} (Fundo + Rateio — proprietário/locador)`
   };
   document.getElementById('modal-pagamento-title').textContent = titulos[tipo];
 
