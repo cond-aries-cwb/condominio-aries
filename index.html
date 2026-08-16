@@ -448,10 +448,7 @@
     </div>
     <div class="field"><label>E-mail</label><input id="un-morador-email"></div>
     <div class="field"><label>CPF</label><input id="un-morador-cpf" placeholder="000.000.000-00"></div>
-    <div class="field-row">
-      <div class="field"><label>Data de entrada</label><input id="un-morador-entrada" type="date"></div>
-      <div class="field"><label>Data de saída</label><input id="un-morador-saida" type="date"></div>
-    </div>
+    <div class="field"><label>Data de entrada</label><input id="un-morador-entrada" type="date"></div>
 <div id="bloco-administracao">
 
   <div class="section-heading">Administração do imóvel</div>
@@ -1262,6 +1259,11 @@ openModal('modal-unidade');
 
 document.getElementById('btn-salvar-unidade').addEventListener('click', async ()=>{
   if(isReadOnly()) return;
+  const btnSalvarUnidade = document.getElementById('btn-salvar-unidade');
+  if(btnSalvarUnidade.disabled) return;
+  const textoOriginalBtnUnidade = btnSalvarUnidade.textContent;
+  btnSalvarUnidade.disabled = true;
+  btnSalvarUnidade.textContent = 'Salvando...';
   const apto = STATE.editingUnidade;
   const isentoAntes = !!(STATE.unidades[apto] && STATE.unidades[apto].isentoTaxa);
   const isentoAgora = document.getElementById('un-isento').checked;
@@ -1275,7 +1277,6 @@ document.getElementById('btn-salvar-unidade').addEventListener('click', async ()
       email: document.getElementById('un-morador-email').value,
       cpf: document.getElementById('un-morador-cpf').value,
       dataEntrada: document.getElementById('un-morador-entrada').value,
-      dataSaida: document.getElementById('un-morador-saida').value,
     },
     proprietario: {
   nome: document.getElementById('un-prop-nome').value,
@@ -1308,6 +1309,8 @@ administracao: {
   closeModal('modal-unidade');
   renderUnidades();
   showToast('Ficha da unidade salva.');
+  btnSalvarUnidade.disabled = false;
+  btnSalvarUnidade.textContent = textoOriginalBtnUnidade;
 });
 
 /* ---------------- RENDER: RECEBER PAGAMENTO ---------------- */
