@@ -21,6 +21,8 @@
     --gold-soft:#F1E8D6;
     --blue:#3D6B96;
     --blue-soft:#E2EBF3;
+    --vinho:#8B4A5C;
+    --vinho-soft:#F2E4E7;
     --radius:10px;
     --serif:Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Times New Roman', serif;
     --sans:'Segoe UI', Inter, system-ui, -apple-system, sans-serif;
@@ -164,6 +166,7 @@
   .tag-verde{background:var(--accent-soft);color:var(--accent-dark);}
   .tag-azul{background:var(--blue-soft);color:var(--blue);}
   .tag-amarelo{background:var(--gold-soft);color:#7A5F22;}
+  .tag-vinho{background:var(--vinho-soft);color:var(--vinho);}
 
     .empty-state{text-align:center;padding:40px 20px;color:var(--ink-faint);}
   .empty-state .ic{font-size:28px;margin-bottom:10px;display:block;}
@@ -1040,7 +1043,7 @@ function tagsUnidade(u){
     if(u.administracao && u.administracao.ehImobiliaria){
       tags.push({label:'Imobiliária', cls:'tag-amarelo'});
     } else {
-      tags.push({label:'Proprietário e Locador', cls:'tag-verde'});
+      tags.push({label:'Locador e Proprietário', cls:'tag-vinho'});
     }
   }
   return tags;
@@ -1364,7 +1367,7 @@ function renderPagamento(){
       tagHtmlRow = '<span class="tag tag-azul">Inquilino</span>';
     } else {
       rotulo = 'Fundo + Rateio (locador)'; quemPaga = dest.nome || '—';
-      tagHtmlRow = (u.administracao && u.administracao.ehImobiliaria) ? '<span class="tag tag-amarelo">Imobiliária</span>' : '<span class="tag tag-verde">Proprietário e Locador</span>';
+      tagHtmlRow = (u.administracao && u.administracao.ehImobiliaria) ? '<span class="tag tag-amarelo">Imobiliária</span>' : '<span class="tag tag-vinho">Locador e Proprietário</span>';
     }
 
     let btnLembrar = '';
