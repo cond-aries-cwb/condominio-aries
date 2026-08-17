@@ -785,6 +785,14 @@ async function salvarConfigVerificado(){
   return confirmado;
 }
 
+const filasEscrita = {};
+function storageSetFila(key, value, shared, silent){
+  const anterior = filasEscrita[key] || Promise.resolve();
+  const atual = anterior.then(()=> storageSet(key, value, shared, silent)).catch(()=>{});
+  filasEscrita[key] = atual;
+  return atual;
+}
+
 function defaultConfig(){
   return {
     nomeCondominio: "Condomínio Edifício Áries",
@@ -1756,17 +1764,26 @@ async function enviarRecibo(apto, tipo, btn){
   }
 }
 
-function verificarPagamentoEmBackground(key, esperandoPago){
+function verificarPagamentoEmBackground(key, esperado){
+  // esperado = null → espera que o registro tenha sido removido (cancelamento)
+  // esperado = {valorPago, pago} → espera que o registro bata com esses valores
   (async ()=>{
     let confirmado = false;
-    for(let tentativa=0; tentativa<3 && !confirmado; tentativa++){
+    for(let tentativa=0; tentativa<5 && !confirmado; tentativa++){
+      await new Promise(r=>setTimeout(r, 900));
       const relido = await storageGet('pagamentos', true, null);
-      const estaPago = !!(relido && relido[key] && relido[key].pago);
-      if(estaPago === esperandoPago){ confirmado = true; }
-      else { await new Promise(r=>setTimeout(r,400)); }
+      const registro = relido ? relido[key] : null;
+      if(esperado === null){
+        confirmado = !registro;
+      } else {
+        confirmado = !!registro && Math.abs((registro.valorPago||0) - esperado.valorPago) < 0.01 && !!registro.pago === esperado.pago;
+      }
     }
     if(!confirmado){
-      showToast('⚠ Não consegui confirmar a última ação de pagamento no armazenamento. Confira novamente em instantes.');
+      const partes = key.split('_');
+      const aptoNum = partes[1] || '?';
+      const ehProp = partes[2] === 'prop';
+      showToast(`⚠ Não consegui confirmar na planilha o pagamento do Apto ${aptoNum}${ehProp?' (fundo/rateio)':''}. Confira essa unidade na aba antes de mandar recibo.`);
     }
   })();
 }
@@ -1791,7 +1808,7 @@ document.getElementById('btn-cancelar-pagamento-confirma').addEventListener('cli
   renderDashboard();
   showToast('Pagamento cancelado.');
 
-  storageSet('pagamentos', STATE.pagamentos, true, true).then(()=> verificarPagamentoEmBackground(key, false));
+  storageSetFila('pagamentos', STATE.pagamentos, true, true).then(()=> verificarPagamentoEmBackground(key, null));
   logAction(`Cancelou o pagamento do Apto ${apto}${anterior?` (era ${fmtMoney(anterior.valorPago)}, pago em ${anterior.dataPagamento||'—'})`:''}`);
 });
 
@@ -1854,7 +1871,7 @@ document.getElementById('btn-confirmar-pagamento-etapa2').addEventListener('clic
   renderDashboard();
   showToast(pagouIntegral ? 'Pagamento registrado.' : `Pagamento parcial registrado (faltam ${fmtMoney(esperado-valor)}).`);
 
-  storageSet('pagamentos', STATE.pagamentos, true, true).then(()=> verificarPagamentoEmBackground(key, true));
+  storageSetFila('pagamentos', STATE.pagamentos, true, true).then(()=> verificarPagamentoEmBackground(key, {valorPago: valor, pago: pagouIntegral}));
   logAction(`Registrou pagamento ${pagouIntegral ? '' : 'PARCIAL '}(${tipo}) do Apto ${apto} (${fmtMoney(valor)}${pagouIntegral ? '' : ' de '+fmtMoney(esperado)+' esperado'})`);
 
   if(!pagouIntegral) return;
