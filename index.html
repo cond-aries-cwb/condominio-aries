@@ -892,6 +892,25 @@ async function logAction(acao){
 
 /* ---------------- LOGIN ---------------- */
 let selectedRole = null;
+let timeoutSessaoDupla = null;
+
+function fazerLogout(mensagem){
+  if(STATE.currentUser && (STATE.currentUser.role === 'sindico' || STATE.currentUser.role === 'subsindico')){
+    apiCall('encerrarSessaoDupla', { role: STATE.currentUser.role }).catch(()=>{});
+  }
+  if(timeoutSessaoDupla){ clearTimeout(timeoutSessaoDupla); timeoutSessaoDupla = null; }
+  STATE.currentUser = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('pin-input').value = '';
+  document.querySelectorAll('.role-btn').forEach(x=>x.classList.remove('selected'));
+  selectedRole = null;
+  document.getElementById('tabs').style.display = 'flex';
+  document.getElementById('searchbox').style.display = 'block';
+  document.querySelectorAll('.qa-btn, .quick-actions').forEach(el=> el.style.display='');
+  try{ history.replaceState(null,'', location.pathname); }catch(err){ /* preview sandbox */ }
+  if(mensagem) showToast(mensagem);
+}
 document.querySelectorAll('.role-btn').forEach(b=>{
   b.addEventListener('click', ()=>{
     document.querySelectorAll('.role-btn').forEach(x=>x.classList.remove('selected'));
@@ -928,12 +947,38 @@ async function doLogin(){
 
   const expected = (STATE.config.pins[selectedRole] && STATE.config.pins[selectedRole].pin) || '123456';
   if(pin !== expected){ err.textContent = 'PIN incorreto.'; return; }
+
+  if(selectedRole === 'sindico' || selectedRole === 'subsindico'){
+    btn.disabled = true;
+    btn.textContent = 'Verificando sessão...';
+    let liberado = { ok: true };
+    try{
+      liberado = await apiCall('verificarSessaoDupla', { role: selectedRole });
+    }catch(e){
+      console.error('falha ao verificar sessão dupla', e);
+    }
+    btn.disabled = false;
+    btn.textContent = textoOriginal;
+    if(!liberado.ok){
+      const outroLabel = ROLE_LABELS[liberado.outroRole] || 'o outro perfil';
+      err.textContent = `${outroLabel} está com uma sessão ativa agora. Tente novamente em até ${liberado.minutosRestantes || 20} min, ou peça para essa pessoa sair.`;
+      return;
+    }
+  }
+
   STATE.currentUser = { role: selectedRole, label: ROLE_LABELS[selectedRole] };
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
   document.getElementById('current-user-label').textContent = STATE.currentUser.label + (isReadOnly() ? ' · leitura' : '');
   logAction('Login no sistema');
   renderAll();
+
+  if(selectedRole === 'sindico' || selectedRole === 'subsindico'){
+    if(timeoutSessaoDupla) clearTimeout(timeoutSessaoDupla);
+    timeoutSessaoDupla = setTimeout(()=>{
+      fazerLogout('Sessão encerrada automaticamente após 20 minutos.');
+    }, 20*60*1000);
+  }
 }
 
 function enterPublicMode(){
@@ -989,18 +1034,7 @@ document.getElementById('link-morador').addEventListener('click', (e)=>{
   enterPublicMode();
 });
 
-document.getElementById('logout-btn').addEventListener('click', ()=>{
-  STATE.currentUser = null;
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('pin-input').value = '';
-  document.querySelectorAll('.role-btn').forEach(x=>x.classList.remove('selected'));
-  selectedRole = null;
-  document.getElementById('tabs').style.display = 'flex';
-  document.getElementById('searchbox').style.display = 'block';
-  document.querySelectorAll('.qa-btn, .quick-actions').forEach(el=> el.style.display='');
-  try{ history.replaceState(null,'', location.pathname); }catch(err){ /* preview sandbox */ }
-});
+document.getElementById('logout-btn').addEventListener('click', ()=> fazerLogout());
 
 /* ---------------- TABS ---------------- */
 document.getElementById('tabs').addEventListener('click', e=>{
