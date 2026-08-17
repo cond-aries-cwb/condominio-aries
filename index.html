@@ -2608,8 +2608,9 @@ botoesWrap.querySelectorAll('button[data-rat-cat]').forEach(b=>{
 }); // <-- Fecha o addEventListener e fecha o forEach
 
 if(!document.getElementById('rat-inicio').value) {
-  document.getElementById('rat-inicio').value = comp;
+  document.getElementById('rat-inicio').value = addMonths(comp, 1);
 }
+document.getElementById('rat-inicio').min = addMonths(comp, 1);
 
 function abrirFormRateio(categoria){
   document.getElementById('rateio-form-area').style.display = 'block';
@@ -2624,7 +2625,10 @@ function abrirFormRateio(categoria){
   }
   document.getElementById('rat-valor').value = '';
   document.getElementById('rat-parcelas').value = '';
-  document.getElementById('rat-inicio').value = STATE.config.competenciaAtual;
+  const proximaCompetencia = addMonths(STATE.config.competenciaAtual, 1);
+  const ratInicio = document.getElementById('rat-inicio');
+  ratInicio.value = proximaCompetencia;
+  ratInicio.min = proximaCompetencia;
   document.getElementById('rat-valor').focus();
 }
 
@@ -2636,6 +2640,11 @@ document.getElementById('btn-add-rateio').addEventListener('click', async (e)=>{
   const competenciaInicio = document.getElementById('rat-inicio').value;
   if(!descricao || valorTotal<=0 || numParcelas<=0 || !competenciaInicio){
     showToast('Preencha descrição, valor total, nº de parcelas e competência de início.');
+    return;
+  }
+  const primeiraCompetenciaPermitida = addMonths(STATE.config.competenciaAtual, 1);
+  if(competenciaInicio < primeiraCompetenciaPermitida){
+    showToast(`Este rateio só pode começar a partir de ${primeiraCompetenciaPermitida} — a competência atual (${STATE.config.competenciaAtual}) já foi cobrada e não pode ser alterada retroativamente.`);
     return;
   }
   btn.disabled = true;
