@@ -184,6 +184,13 @@
   .add-btn{background:var(--accent);color:#fff;border:none;padding:9px 16px;border-radius:7px;font-size:13px;font-weight:600;}
   .add-btn:hover{background:var(--accent-dark);}
   .flex-between{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+
+  @media(max-width:480px){
+    #view-pagamento .card{overflow-x:auto;}
+    #view-pagamento table.ledger{font-size:11.5px;}
+    #view-pagamento table.ledger th, #view-pagamento table.ledger td{padding:8px 5px;}
+    #view-pagamento .btn{padding:7px 10px;font-size:12px;}
+  }
 </style>
 </head>
 <body>
@@ -301,7 +308,7 @@
       <div class="view-title"><h2>Receber Pagamento</h2><p>Marque o pagamento da taxa condominial por unidade, na competência atual. Lembretes ficam disponíveis a partir do dia 1 do mês da competência.</p></div>
       <div class="card">
         <table class="ledger" id="pagamento-table">
-          <thead><tr><th>Apto</th><th>Morador</th><th class="num">Valores / Responsabilidade</th><th>Status</th><th></th><th></th></tr></thead>
+          <thead><tr><th>Apto</th><th>Morador</th><th style="text-align:center;">Valores /<br>Responsabilidade</th><th style="text-align:center;">Status</th><th></th><th></th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -1084,6 +1091,25 @@ function linhasPagamentoCompetencia(comp){
     return Object.assign(l, {key, pagamento, status});
   });
 }
+function detalheFaltantePagamento(pagamento, taxaDevida, fundoDevido, rateioDevido, tipo){
+  const partes = [];
+  if(tipo !== 'fundorateio'){
+    const pagoTaxa = pagamento.valorTaxa || 0;
+    const faltaTaxa = taxaDevida - pagoTaxa;
+    partes.push(faltaTaxa > 0.01 ? `Taxa condominial — falta ${fmtMoney(faltaTaxa)}` : `Taxa condominial — pago ✓`);
+  }
+  if(tipo !== 'taxa'){
+    const pagoFundo = pagamento.valorFundo || 0;
+    const faltaFundo = fundoDevido - pagoFundo;
+    partes.push(faltaFundo > 0.01 ? `Fundo de reserva — falta ${fmtMoney(faltaFundo)}` : `Fundo de reserva — pago ✓`);
+    if(rateioDevido > 0.01){
+      const pagoRateio = pagamento.valorRateio || 0;
+      const faltaRateio = rateioDevido - pagoRateio;
+      partes.push(faltaRateio > 0.01 ? `Rateio de reforma — falta ${fmtMoney(faltaRateio)}` : `Rateio de reforma — pago ✓`);
+    }
+  }
+  return partes;
+}
 function resolverDestinatarioPagamento(apto, tipo){
   const u = STATE.unidades[apto] || {};
   const morador = u.morador || {};
@@ -1162,9 +1188,12 @@ function renderDashboard(){
   let pendentes=0;
   const alertasParciais = [];
   const porCategoria = {};
+  const porApto = {};
   linhasPag.forEach(l=>{
     const cat = categoriaPagamentoLinha(l.apto, l.tipo);
     if(!porCategoria[cat.label]) porCategoria[cat.label] = {dot: cat.dot, pago:0, parcial:0, pendente:0};
+    if(!porApto[l.apto]) porApto[l.apto] = [];
+    porApto[l.apto].push(l.status);
     if(l.status === 'isento') return;
     if(l.status === 'pago') porCategoria[cat.label].pago++;
     else if(l.status === 'parcial'){
@@ -1172,24 +1201,37 @@ function renderDashboard(){
       alertasParciais.push({apto:l.apto, tipo:l.tipo, valorEsperado:l.valorEsperado, valorPago: l.pagamento.valorPago});
     } else { pendentes++; porCategoria[cat.label].pendente++; }
   });
+
+  let aptEmDia=0, aptParcial=0, aptPendente=0, aptIsento=0;
+  Object.values(porApto).forEach(statusList=>{
+    if(statusList.every(s=> s==='isento')) aptIsento++;
+    else if(statusList.every(s=> s==='pago' || s==='isento')) aptEmDia++;
+    else if(statusList.some(s=> s==='parcial')) aptParcial++;
+    else aptPendente++;
+  });
+  const totalAptosComCadastro = Object.keys(porApto).length;
+  const resumoAptos = totalAptosComCadastro > 0
+    ? `<div style="font-size:13px;margin-bottom:12px;"><b>${aptEmDia}</b> de <b>${totalAptosComCadastro}</b> apartamento(s) em dia · <b>${aptParcial}</b> parcial(is) · <b>${aptPendente}</b> pendente(s)${aptIsento? ' · '+aptIsento+' isento(s)':''}</div>`
+    : '';
+
   const situacaoBox = document.getElementById('situacao-competencia-box');
   const categorias = Object.keys(porCategoria);
-  situacaoBox.innerHTML = categorias.length ? `
+  situacaoBox.innerHTML = categorias.length ? resumoAptos + `
     <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
       <thead><tr style="color:var(--ink-faint);text-transform:uppercase;font-size:10.5px;">
         <th style="text-align:left;padding:4px 0;">Categoria</th>
-        <th class="num" style="padding:4px 0;">Em dia</th>
-        <th class="num" style="padding:4px 0;">Parcial</th>
-        <th class="num" style="padding:4px 0;">Pendente</th>
+        <th style="text-align:center;padding:4px 0;">Em dia</th>
+        <th style="text-align:center;padding:4px 0;">Parcial</th>
+        <th style="text-align:center;padding:4px 0;">Pendente</th>
       </tr></thead>
       <tbody>
         ${categorias.map(label=>{
           const c = porCategoria[label];
           return `<tr style="border-top:1px solid var(--line);">
             <td style="padding:6px 0;"><span class="dot ${c.dot}" style="display:inline-block;margin-right:6px;"></span>${label}</td>
-            <td class="num">${c.pago}</td>
-            <td class="num" style="${c.parcial>0?'color:#7A5F22;font-weight:600;':''}">${c.parcial}</td>
-            <td class="num" style="${c.pendente>0?'color:var(--alert);font-weight:600;':''}">${c.pendente}</td>
+            <td class="num" style="text-align:center;">${c.pago}</td>
+            <td class="num" style="text-align:center;${c.parcial>0?'color:#7A5F22;font-weight:600;':''}">${c.parcial}</td>
+            <td class="num" style="text-align:center;${c.pendente>0?'color:var(--alert);font-weight:600;':''}">${c.pendente}</td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -1215,8 +1257,8 @@ function renderDashboard(){
     const rotuloTipo = a.tipo === 'taxa' ? ' — taxa' : (a.tipo === 'fundorateio' ? ' — fundo/rateio' : '');
     alertsBox.innerHTML += `<div class="alert-row"><span class="dot gold"></span> Unidade ${a.apto}${rotuloTipo} pagou parcial: ${fmtMoney(a.valorPago)} de ${fmtMoney(a.valorEsperado)} (faltam ${fmtMoney(faltante)})</div>`;
   });
-  if(pendentes>0){
-    alertsBox.innerHTML += `<div class="alert-row"><span class="dot red"></span> ${pendentes} apartamento(s) com pagamento pendente nesta competência</div>`;
+ if(pendentes>0){
+    alertsBox.innerHTML += `<div class="alert-row"><span class="dot red"></span> ${pendentes} cobrança(s) pendente(s) nesta competência (taxa, fundo ou rateio)</div>`;
   }
   if(STATE.fornecedores.length===0){
     alertsBox.innerHTML += `<div class="alert-row"><span class="dot gold"></span> Nenhum fornecedor cadastrado ainda</div>`;
@@ -1428,7 +1470,7 @@ function renderPagamento(){
     const tr = document.createElement('tr');
 
     if(!l.tipo){
-      tr.innerHTML = `<td>${i}</td><td>—</td><td class="num">—</td><td><span class="badge no" style="background:var(--bg);color:var(--ink-faint);">Sem cadastro</span></td><td></td><td></td>`;
+      tr.innerHTML = `<td>${i}</td><td>—</td><td style="text-align:center;">—</td><td style="text-align:center;"><span class="badge no" style="background:var(--bg);color:var(--ink-faint);">Sem cadastro</span></td><td></td><td></td>`;
       tbody.appendChild(tr);
       return;
     }
@@ -1474,8 +1516,8 @@ function renderPagamento(){
 
     tr.innerHTML = `<td>${i}</td>
       <td>${tagHtmlRow} ${quemPaga}<div style="font-size:11px;color:var(--ink-faint);">${rotulo}</div></td>
-      <td class="num"><strong>${fmtMoney(l.valorEsperado)}</strong></td>
-      <td>${statusBadge}</td>
+      <td style="text-align:center;"><strong>${fmtMoney(l.valorEsperado)}</strong></td>
+      <td style="text-align:center;">${statusBadge}</td>
       <td>${(isReadOnly() || isentoRow) ? '' : `<button class="btn" data-apto="${i}" data-tipo="${l.tipo}">${(pago||parcial)?'Editar':'Registrar'}</button>`}</td>
       <td>${btnLembrar}</td>`;
     tbody.appendChild(tr);
@@ -1648,7 +1690,7 @@ function openPagamentoModal(apto, tipo){
   const btnCancelarConfirma = document.getElementById('btn-cancelar-pagamento-confirma');
   const btnConfirmar = document.getElementById('btn-confirmar-pagamento');
   const btnConfirmarEtapa2 = document.getElementById('btn-confirmar-pagamento-etapa2');
-  btnCancelar.style.display = (pagamento.pago && !isReadOnly()) ? 'inline-block' : 'none';
+  btnCancelar.style.display = (pagamento && pagamento.valorPago > 0 && !isReadOnly()) ? 'inline-block' : 'none';
   btnCancelarConfirma.style.display = 'none';
   btnConfirmar.style.display = 'inline-block';
   btnConfirmarEtapa2.style.display = 'none';
@@ -1664,7 +1706,8 @@ function openPagamentoModal(apto, tipo){
       document.getElementById('btn-baixar-recibo').addEventListener('click', (e)=> baixarReciboPDF(apto, tipo, e.currentTarget));
     }
   } else if(pagamento && pagamento.valorPago && !pagamento.pago && !isReadOnly()){
-    reciboArea.innerHTML = `<div class="login-hint" style="text-align:left;color:var(--alert);">⚠ Pagamento parcial (${fmtMoney(pagamento.valorPago)} de ${fmtMoney(pagamento.valorEsperado || 0)}). O Recibo somente poderá ser enviado mediante pagamento integral das atribuições.</div>`;
+    const faltantes = detalheFaltantePagamento(pagamento, taxaSugerida, fundoSugerido, rateioSugerido, tipo);
+    reciboArea.innerHTML = `<div class="login-hint" style="text-align:left;color:var(--alert);">⚠ Pagamento parcial (${fmtMoney(pagamento.valorPago)} de ${fmtMoney(pagamento.valorEsperado || 0)}).<br>${faltantes.join('<br>')}<br>O recibo só pode ser enviado após quitar tudo.</div>`;
   } else {
     reciboArea.innerHTML = '';
   }
