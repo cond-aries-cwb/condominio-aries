@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0061)file:///C:/Users/ACER/Downloads/sgca-condominio-aries_15.html -->
+<!-- saved from url=(0050)https://cond-aries-cwb.github.io/condominio-aries/ -->
 <html lang="pt-BR"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -192,7 +192,7 @@
     #view-pagamento .btn{padding:7px 10px;font-size:12px;}
   }
 </style>
-</head>
+<meta id="dcngeagmmhegagicpcmpinaoklddcgon"></head>
 <body>
 
 <!-- ============ LOGIN ============ -->
@@ -466,22 +466,12 @@
     <div style="display:flex;gap:18px;align-items:center;margin-top:6px;">
 
       <label style="display:flex;align-items:center;gap:6px;font-weight:400;">
-        <input
-          type="radio"
-          name="un-adm-imobiliaria"
-          id="un-adm-imob-sim"
-          value="sim"
-          style="width:auto;">
+        <input type="radio" name="un-adm-imobiliaria" id="un-adm-imob-sim" value="sim" style="width:auto;">
         Sim
       </label>
 
       <label style="display:flex;align-items:center;gap:6px;font-weight:400;">
-        <input
-          type="radio"
-          name="un-adm-imobiliaria"
-          id="un-adm-imob-nao"
-          value="nao"
-          style="width:auto;">
+        <input type="radio" name="un-adm-imobiliaria" id="un-adm-imob-nao" value="nao" style="width:auto;">
         Não
       </label>
 
@@ -615,7 +605,7 @@
       <label>Pagamento por boleto?</label>
       <div style="display:flex;gap:16px;margin-top:6px;">
         <label style="display:flex;align-items:center;gap:6px;font-weight:400;"><input type="radio" name="forn-boleto" id="forn-boleto-sim" value="sim" style="width:auto;"> Sim</label>
-        <label style="display:flex;align-items:center;gap:6px;font-weight:400;"><input type="radio" name="forn-boleto" id="forn-boleto-nao" value="nao" style="width:auto;" checked> Não</label>
+        <label style="display:flex;align-items:center;gap:6px;font-weight:400;"><input type="radio" name="forn-boleto" id="forn-boleto-nao" value="nao" style="width:auto;" checked=""> Não</label>
       </div>
     </div>
     <div class="field-row">
@@ -899,6 +889,7 @@ function fazerLogout(mensagem){
     apiCall('encerrarSessaoDupla', { role: STATE.currentUser.role }).catch(()=>{});
   }
   if(timeoutSessaoDupla){ clearTimeout(timeoutSessaoDupla); timeoutSessaoDupla = null; }
+  if(intervaloBatimentoSessao){ clearInterval(intervaloBatimentoSessao); intervaloBatimentoSessao = null; }
   STATE.currentUser = null;
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
@@ -973,12 +964,28 @@ async function doLogin(){
   logAction('Login no sistema');
   renderAll();
 
-  if(selectedRole === 'sindico' || selectedRole === 'subsindico'){
+    if(selectedRole === 'sindico' || selectedRole === 'subsindico'){
     if(timeoutSessaoDupla) clearTimeout(timeoutSessaoDupla);
     timeoutSessaoDupla = setTimeout(()=>{
       fazerLogout('Sessão encerrada automaticamente após 20 minutos.');
     }, 20*60*1000);
+    iniciarBatimentoSessao(selectedRole);
   }
+}
+
+let intervaloBatimentoSessao = null;
+function iniciarBatimentoSessao(role){
+  if(intervaloBatimentoSessao) clearInterval(intervaloBatimentoSessao);
+  intervaloBatimentoSessao = setInterval(async ()=>{
+    if(!STATE.currentUser || STATE.currentUser.role !== role) { clearInterval(intervaloBatimentoSessao); return; }
+    try{
+      const r = await apiCall('checarSessaoAtiva', { role });
+      if(!r.ativa){
+        clearInterval(intervaloBatimentoSessao);
+        fazerLogout('Sua sessão foi encerrada porque o outro perfil (Síndico/Subsíndico) entrou no sistema.');
+      }
+    }catch(e){ console.error('falha ao checar sessão', e); }
+  }, 3*60*1000);
 }
 
 function enterPublicMode(){
@@ -2898,4 +2905,5 @@ initData().then(()=>{
 </script>
 
 
-</body></html>
+
+</body><style type="text/css" id="custom-page-zoom-css"></style></html>
