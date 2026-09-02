@@ -192,7 +192,7 @@
     #view-pagamento .btn{padding:7px 10px;font-size:12px;}
   }
 </style>
-<meta id="dcngeagmmhegagicpcmpinaoklddcgon"><meta id="dcngeagmmhegagicpcmpinaoklddcgon"></head>
+<meta id="dcngeagmmhegagicpcmpinaoklddcgon"><meta id="dcngeagmmhegagicpcmpinaoklddcgon"><meta id="dcngeagmmhegagicpcmpinaoklddcgon"></head>
 <body>
 
 <!-- ============ LOGIN ============ -->
@@ -1223,7 +1223,7 @@ link.click();
 document.body.removeChild(link);
 const confirmou = confirm('O download do recibo foi feito. Anexe à mensagem. Confirma?');
 if(confirmou){
-const mensagem = `Olá, ${dest.nome || ''}! Segue confirmação do pagamento do Apto ${apto}, referente a ${formatCompetencia(comp)}. O recibo em PDF acabou de ser baixado — por favor, anexe o arquivo aqui na conversa. Atenciosamente, ${STATE.config.nomeCondominio}.`;
+const mensagem = `Olá, ${dest.nome || ''}! Segue confirmação do pagamento do Apto ${apto}, referente a ${comp}. O recibo em PDF acabou de ser baixado — por favor, anexe o arquivo aqui na conversa. Atenciosamente, ${STATE.config.nomeCondominio}.`;
 abrirWhatsApp(dest.telefone, mensagem);
 await logAction(`Baixou o recibo (Apto ${apto}, ${tipo}) para enviar por WhatsApp`);
 }
@@ -2976,4 +2976,5 @@ initData().then(()=>{
 
 
 <style type="text/css" id="custom-page-zoom-css"></style>
-</body><style type="text/css" id="custom-page-zoom-css"></style></html>
+<style type="text/css" id="custom-page-zoom-css"></style>
+</body></html>
