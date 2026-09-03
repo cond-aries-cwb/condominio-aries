@@ -1223,7 +1223,7 @@ link.click();
 document.body.removeChild(link);
 const confirmou = confirm('O download do recibo foi feito. Anexe à mensagem. Confirma?');
 if(confirmou){
-const mensagem = `Olá, ${dest.nome || ''}! Segue confirmação do pagamento do Apto ${apto}, referente a ${comp}. O recibo em PDF acabou de ser baixado — por favor, anexe o arquivo aqui na conversa. Atenciosamente, ${STATE.config.nomeCondominio}.`;
+const mensagem = `Olá, ${dest.nome || ''}! Segue confirmação do pagamento do Apto ${apto}, referente a ${formatCompetencia(comp)}. O recibo em PDF acabou de ser baixado — por favor, anexe o arquivo aqui na conversa. Atenciosamente, ${STATE.config.nomeCondominio}.`;
 abrirWhatsApp(dest.telefone, mensagem);
 await logAction(`Baixou o recibo (Apto ${apto}, ${tipo}) para enviar por WhatsApp`);
 }
@@ -1810,26 +1810,15 @@ function openPagamentoModal(apto, tipo){
 
   const reciboArea = document.getElementById('pg-recibo-area');
   if(pagamento.pago && !isReadOnly()){
-    const botaoWhatsApp = `<button class="btn" id="btn-whatsapp-recibo" style="margin-top:6px;display:flex;align-items:center;gap:6px;">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="#25D366"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l5.06-1.33A9.94 9.94 0 0 0 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm5.2 14.2c-.22.62-1.28 1.18-1.78 1.25-.46.07-1.02.1-1.65-.1-.38-.12-.87-.28-1.5-.55-2.64-1.14-4.36-3.8-4.5-3.98-.13-.18-1.08-1.43-1.08-2.73s.68-1.93.92-2.2c.24-.26.52-.32.7-.32.18 0 .35 0 .5.01.16.01.38-.06.6.46.22.53.75 1.82.82 1.95.07.13.11.28.02.46-.09.18-.13.28-.26.43-.13.15-.27.34-.39.46-.13.13-.26.27-.11.53.15.26.68 1.12 1.46 1.82 1.01.9 1.86 1.18 2.12 1.31.26.13.41.11.56-.07.15-.18.64-.75.81-1.01.17-.26.34-.22.57-.13.23.09 1.47.69 1.72.82.25.13.42.19.48.3.06.11.06.62-.16 1.24z"/></svg>
-      Deseja enviar por WhatsApp?
-    </button>`;
-    reciboArea.innerHTML = (dest.email
-      ? `<button class="btn" id="btn-enviar-recibo">✉️ Enviar recibo por e-mail (${dest.email})</button>`
-      : `<button class="btn" id="btn-baixar-recibo">🖨️ Baixar recibo em PDF (sem e-mail cadastrado)</button>`) + botaoWhatsApp;
-    if(dest.email){
-      document.getElementById('btn-enviar-recibo').addEventListener('click', (e)=> enviarRecibo(apto, tipo, e.currentTarget));
-    } else {
-      document.getElementById('btn-baixar-recibo').addEventListener('click', (e)=> baixarReciboPDF(apto, tipo, e.currentTarget));
-    }
-    document.getElementById('btn-whatsapp-recibo').addEventListener('click', (e)=> enviarReciboWhatsApp(apto, tipo, e.currentTarget));
+    reciboArea.innerHTML = dest.email
+      ? `<div class="login-hint" style="text-align:left;">Recibo já foi enviado automaticamente para ${dest.email}.</div>`
+      : '';
   } else if(pagamento && pagamento.valorPago && !pagamento.pago && !isReadOnly()){
     const faltantes = detalheFaltantePagamento(pagamento, taxaSugerida, fundoSugerido, rateioSugerido, tipo);
     reciboArea.innerHTML = `<div class="login-hint" style="text-align:left;color:var(--alert);">⚠ Pagamento parcial (${fmtMoney(pagamento.valorPago)} de ${fmtMoney(pagamento.valorEsperado || 0)}).<br>${faltantes.join('<br>')}<br>O recibo só pode ser enviado após quitar tudo.</div>`;
   } else {
     reciboArea.innerHTML = '';
   }
-
   openModal('modal-pagamento');
 }
 
