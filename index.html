@@ -669,6 +669,7 @@ let STATE = {
   currentUser: null, // {role, label}
   editingUnidade: null,
 editingPagamento: null,
+reciboPendente: null,
 editingPagamentoTipo: null,
 editingDespesa: null,
 editingFornecedor: null,
@@ -1973,50 +1974,82 @@ document.getElementById('btn-confirmar-pagamento-etapa2').addEventListener('clic
   storageSetFila('pagamentos', STATE.pagamentos, true, true).then(()=> verificarPagamentoEmBackground(key, {valorPago: valor, pago: pagouIntegral}));
   logAction(`Registrou pagamento ${pagouIntegral ? '' : 'PARCIAL '}(${tipo}) do Apto ${apto} (${fmtMoney(valor)}${pagouIntegral ? '' : ' de '+fmtMoney(esperado)+' esperado'})`);
 
-  if(!pagouIntegral) return;
-
-  if(dest.email){
-    try{
-      const r = await apiCall('enviarRecibo', { params: {
-        tipo,
-        email: dest.email, nome: dest.nome, nomeProprietario: dest.nomeProprietario,
-        apto, referencia: comp,
-        valorTaxa, valorFundo, valorRateio, valor,
-        rateiosDetalhe: detalhesRateiosAtivos(comp),
-        data: STATE.pagamentos[key].dataPagamento, forma: STATE.pagamentos[key].forma,
-        nomeCondominio: STATE.config.nomeCondominio
-      }});
-      if(r.ok){ logAction(`Recibo enviado automaticamente ao Apto ${apto} (${tipo})`); showToast('Pagamento registrado — recibo enviado automaticamente.'); }
-    }catch(err){ console.error('falha ao enviar recibo automático', err); }
-  } else {
-    const querImprimir = confirm('Este destinatário não tem e-mail cadastrado.\n\nDeseja baixar o recibo em PDF agora?');
-    if(querImprimir){
-      try{
-        const r = await apiCall('gerarReciboPDF', { params: {
-          tipo,
-          nome: dest.nome, nomeProprietario: dest.nomeProprietario,
-          apto, referencia: comp,
-          valorTaxa, valorFundo, valorRateio, valor,
-          rateiosDetalhe: detalhesRateiosAtivos(comp),
-          data: STATE.pagamentos[key].dataPagamento, forma: STATE.pagamentos[key].forma,
-          nomeCondominio: STATE.config.nomeCondominio
-        }});
-        if(r.ok && r.pdfBase64){
-          const link = document.createElement('a');
-          link.href = 'data:application/pdf;base64,' + r.pdfBase64;
-          link.download = r.nomeArquivo || `Recibo_Apto${apto}.pdf`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          logAction(`Baixou o recibo em PDF do Apto ${apto} (${tipo})`);
-        } else {
-          showToast('Não foi possível gerar o PDF: ' + (r.motivo||'erro desconhecido'));
-        }
-      }catch(err){ console.error('falha ao gerar PDF do recibo', err); showToast('⚠ Erro ao gerar o PDF.'); }
-    }
-  }
+ if(!pagouIntegral) return;
+if(dest.email){
+try{
+const r = await apiCall('enviarRecibo', { params: {
+tipo,
+email: dest.email, nome: dest.nome, nomeProprietario: dest.nomeProprietario,
+apto, referencia: comp,
+valorTaxa, valorFundo, valorRateio, valor,
+rateiosDetalhe: detalhesRateiosAtivos(comp),
+data: STATE.pagamentos[key].dataPagamento, forma: STATE.pagamentos[key].forma,
+nomeCondominio: STATE.config.nomeCondominio
+}});
+if(r.ok){ logAction(`Recibo enviado automaticamente ao Apto ${apto} (${tipo})`); showToast('Pagamento registrado — recibo enviado automaticamente.'); }
+}catch(err){ console.error('falha ao enviar recibo automático', err); }
+}
+abrirPerguntaBaixarRecibo(apto, tipo, dest, {
+tipo,
+nome: dest.nome, nomeProprietario: dest.nomeProprietario,
+apto, referencia: comp,
+valorTaxa, valorFundo, valorRateio, valor,
+rateiosDetalhe: detalhesRateiosAtivos(comp),
+data: STATE.pagamentos[key].dataPagamento, forma: STATE.pagamentos[key].forma,
+nomeCondominio: STATE.config.nomeCondominio
 });
-
+});
+function abrirPerguntaBaixarRecibo(apto, tipo, dest, paramsPDF){
+STATE.reciboPendente = { apto, tipo, dest, paramsPDF };
+openModal('modal-baixar-recibo');
+}
+document.getElementById('btn-baixar-recibo-nao').addEventListener('click', ()=>{
+closeModal('modal-baixar-recibo');
+STATE.reciboPendente = null;
+});
+document.getElementById('btn-baixar-recibo-sim').addEventListener('click', async ()=>{
+closeModal('modal-baixar-recibo');
+const ctx = STATE.reciboPendente;
+if(!ctx) return;
+try{
+const r = await apiCall('gerarReciboPDF', { params: ctx.paramsPDF });
+if(r.ok && r.pdfBase64){
+const link = document.createElement('a');
+link.href = 'data:application/pdf;base64,' + r.pdfBase64;
+link.download = r.nomeArquivo || `Recibo_Apto${ctx.apto}.pdf`;
+document.body.appendChild(link);
+link.click();
+document.body.removeChild(link);
+logAction(`Baixou o recibo em PDF do Apto ${ctx.apto} (${ctx.tipo})`);
+if(ctx.dest.telefone){
+openModal('modal-whatsapp-recibo');
+} else {
+showToast('Este destinatário não tem telefone/WhatsApp cadastrado.');
+STATE.reciboPendente = null;
+}
+} else {
+showToast('Não foi possível gerar o PDF: ' + (r.motivo||'erro desconhecido'));
+STATE.reciboPendente = null;
+}
+}catch(err){
+console.error('falha ao gerar PDF do recibo', err);
+showToast('⚠ Erro ao gerar o PDF.');
+STATE.reciboPendente = null;
+}
+});
+document.getElementById('btn-whatsapp-recibo-nao').addEventListener('click', ()=>{
+closeModal('modal-whatsapp-recibo');
+STATE.reciboPendente = null;
+});
+document.getElementById('btn-whatsapp-recibo-sim').addEventListener('click', ()=>{
+closeModal('modal-whatsapp-recibo');
+const ctx = STATE.reciboPendente;
+if(!ctx) return;
+const mensagem = `Olá, ${ctx.dest.nome || ''}! Segue confirmação do pagamento do Apto ${ctx.apto}, referente a ${ctx.paramsPDF.referencia}. O recibo em PDF acabou de ser baixado — por favor, anexe o arquivo aqui na conversa. Atenciosamente, ${STATE.config.nomeCondominio}.`;
+abrirWhatsApp(ctx.dest.telefone, mensagem);
+logAction(`Enviou recibo por WhatsApp ao Apto ${ctx.apto} (${ctx.tipo})`);
+STATE.reciboPendente = null;
+});
 /* ---------------- RENDER: DESPESAS ---------------- */
 const DESPESAS_FIXAS_OPCOES = ["Copel (luz)","Diarista","Pró-Labore Síndico(a)","Sanepar (água)"];
 const DESPESAS_VARIAVEIS_OPCOES = ["Encanador","Extintores","Impressões","Jardinagem","Lâmpadas","Pedreiro","Produtos de limpeza","Seguro","Serviço Contábil","Serviço Jurídico","Taxa TEV"];
