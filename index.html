@@ -1907,7 +1907,7 @@ document.getElementById('btn-whatsapp-recibo-sim').addEventListener('click', ()=
 closeModal('modal-whatsapp-recibo');
 const ctx = STATE.reciboPendente;
 if(!ctx) return;
-const mensagem = `Olá, ${ctx.dest.nome || ''}! Segue confirmação do pagamento do Apto ${ctx.apto}, referente a ${ctx.paramsPDF.referencia}. O recibo em PDF acabou de ser baixado — por favor, anexe o arquivo aqui na conversa. Atenciosamente, ${STATE.config.nomeCondominio}.`;
+const mensagem = `Olá, ${ctx.dest.nome || ''}! Segue confirmação do pagamento do Apto ${ctx.apto}, referente a ${ctx.paramsPDF.referencia}. Atenciosamente, ${STATE.config.nomeCondominio}.`;
 abrirWhatsApp(ctx.dest.telefone, mensagem);
 logAction(`Enviou recibo por WhatsApp ao Apto ${ctx.apto} (${ctx.tipo})`);
 STATE.reciboPendente = null;
