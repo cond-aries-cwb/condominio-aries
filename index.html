@@ -655,19 +655,25 @@ window.__toastTimer = setTimeout(()=>{ t.style.display='none'; }, 2600);
 }
 // ---- Conexão com a planilha Google Sheets (via Apps Script) ----
 const API_URL = "https://script.google.com/macros/s/AKfycbwPuK0Xec3lQryvKuFdiCIY9d3q5CoNp8xntoLHvGdXkd4r3dAMVIDzNoQ7T1E7tlx-/exec";
-const API_TOKEN = "alkl2321cond.aries";
-async function apiCall(action, extra, timeoutMs){
+let SESSAO = null;      // código da sessão, entregue pelo servidor depois do login
+let PUBLIC_DATA = null; // cópia dos dados públicos (para limpar a tela ao sair)
+async function apiCall(action, extra, timeoutMs, sessaoOverride){
 const controller = new AbortController();
 const timeoutId = setTimeout(()=> controller.abort(), timeoutMs || 15000);
 try{
 const res = await fetch(API_URL, {
 method: 'POST',
 headers: {'Content-Type':'text/plain;charset=utf-8'}, // evita pré-checagem CORS que o Apps Script não responde
-body: JSON.stringify(Object.assign({action, token: API_TOKEN}, extra || {})),
+body: JSON.stringify(Object.assign({action, sessao: sessaoOverride || SESSAO}, extra || {})),
 signal: controller.signal
 });
 const data = await res.json();
-if(data && data.error) throw new Error(data.error);
+if(data && data.error){
+if(data.error === 'sessao_expirada' && SESSAO && !sessaoOverride){
+fazerLogout('Sua sessão expirou. Entre novamente.');
+}
+throw new Error(data.error);
+}
 return data;
 }catch(e){
 if(e.name === 'AbortError') throw new Error('A operação demorou demais para responder (mais de '+((timeoutMs||15000)/1000)+'s).');
@@ -698,6 +704,7 @@ await doWrite();
 if(tentativa>1) console.log('storage retry succeeded for', key, 'na tentativa', tentativa);
 return;
 }catch(e){
+if(e && e.message === 'sessao_expirada') return;
 console.error('storage error (tentativa '+tentativa+')', key, e);
 if(tentativa<3){
 await new Promise(r=>setTimeout(r, 600*tentativa));
@@ -740,10 +747,10 @@ saldosBase: { condominio: 0, fundoReserva: 0, rateioReforma: 0 },
 dadosBancarios: { pix: "", banco: "", agencia: "", conta: "" },
 rateios: [],
 pins: {
-sindico: { pin: "123456", email: "" },
-subsindico: { pin: "123456", email: "" },
-conselho: { pin: "123456", email: "" },
-administrador: { pin: "123456", email: "" }
+sindico: { email: "" },
+subsindico: { email: "" },
+conselho: { email: "" },
+administrador: { email: "" }
 }
 };
 }
@@ -769,6 +776,9 @@ Object.keys(STATE.config.pins).forEach(role=>{
 STATE.config.pins[role] = { pin: STATE.config.pins[role], email: '' };
 });
 }
+if(!STATE.config.pins) STATE.config.pins = {};
+['sindico','subsindico','conselho','administrador'].forEach(r=>{ if(!STATE.config.pins[r]) STATE.config.pins[r] = {}; });
+STATE.resumoPublico = data.resumoAtual || null;
 STATE.unidades = data.unidades || {};
 STATE.pagamentos = data.pagamentos || {};
 STATE.despesas = data.despesas || [];
@@ -785,26 +795,14 @@ storageSet('config', STATE.config, true, true);
 }
 }
 async function initData(){
-let cache = null;
+try{ localStorage.removeItem(SGCA_CACHE_KEY); }catch(e){ /* ignora */ }
 try{
-const raw = localStorage.getItem(SGCA_CACHE_KEY);
-if(raw) cache = JSON.parse(raw);
-}catch(e){ /* cache corrompido, ignora */ }
-if(cache){
-aplicarDados(cache, false);
-}
-try{
-const fresh = await apiCall('getAll');
-localStorage.setItem(SGCA_CACHE_KEY, JSON.stringify(fresh));
-aplicarDados(fresh, true);
-if(STATE.currentUser) renderAll();
+const pub = await apiCall('getPublic');
+PUBLIC_DATA = JSON.parse(JSON.stringify(pub));
+aplicarDados(pub, false);
 }catch(e){
 console.error('falha ao carregar a planilha', e);
-if(!cache){
 showToast('⚠ Não consegui conectar à planilha agora. Verifique sua internet e recarregue.');
-}else{
-showToast('⚠ Mostrando dados salvos localmente — não foi possível atualizar agora.');
-}
 }
 }
 async function logAction(acao){
@@ -822,12 +820,26 @@ renderLog();
 let selectedRole = null;
 let timeoutSessaoDupla = null;
 function fazerLogout(mensagem){
-if(STATE.currentUser && (STATE.currentUser.role === 'sindico' || STATE.currentUser.role === 'subsindico')){
-apiCall('encerrarSessaoDupla', { role: STATE.currentUser.role }).catch(()=>{});
+const tokenAtual = SESSAO;
+const roleAtual = STATE.currentUser ? STATE.currentUser.role : null;
+SESSAO = null;
+if(tokenAtual && roleAtual && roleAtual !== 'publico'){
+(async ()=>{
+try{
+if(roleAtual === 'sindico' || roleAtual === 'subsindico'){
+await apiCall('encerrarSessaoDupla', { role: roleAtual }, 8000, tokenAtual);
+}
+await apiCall('logout', {}, 8000, tokenAtual);
+}catch(e){ /* ignora */ }
+})();
 }
 if(timeoutSessaoDupla){ clearTimeout(timeoutSessaoDupla); timeoutSessaoDupla = null; }
 if(intervaloBatimentoSessao){ clearInterval(intervaloBatimentoSessao); intervaloBatimentoSessao = null; }
 STATE.currentUser = null;
+// Tira da memória e da tela os dados internos: volta a ficar só com os dados públicos
+if(PUBLIC_DATA){
+try{ aplicarDados(JSON.parse(JSON.stringify(PUBLIC_DATA)), false); renderAll(); }catch(err){ console.error(err); }
+}
 document.getElementById('app').style.display = 'none';
 document.getElementById('login-screen').style.display = 'flex';
 document.getElementById('pin-input').value = '';
@@ -854,40 +866,36 @@ const err = document.getElementById('login-error');
 if(!selectedRole){ err.textContent = 'Selecione um perfil.'; return; }
 const btn = document.getElementById('login-btn');
 const pin = document.getElementById('pin-input').value.trim();
+if(!pin){ err.textContent = 'Digite o PIN.'; return; }
 const textoOriginal = btn.textContent;
-const bateComConfigAtual = () => (STATE.config.pins[selectedRole] && STATE.config.pins[selectedRole].pin) === pin;
-if(!bateComConfigAtual()){
-// Não bateu com o que já estava carregado — busca uma vez mais fresco, caso o PIN tenha sido trocado agora há pouco
 btn.disabled = true;
-btn.textContent = 'Verificando PIN mais recente...';
+btn.textContent = 'Entrando...';
+err.textContent = '';
+let r;
 try{
-const dadosFrescos = await apiCall('getAll');
-if(dadosFrescos && dadosFrescos.config){ STATE.config = dadosFrescos.config; }
+r = await apiCall('login', { role: selectedRole, pin }, 30000);
 }catch(e){
-console.error('não consegui atualizar antes do login, usando dados já carregados', e);
-}
+console.error('falha no login', e);
 btn.disabled = false;
 btn.textContent = textoOriginal;
-}
-const expected = (STATE.config.pins[selectedRole] && STATE.config.pins[selectedRole].pin) || '123456';
-if(pin !== expected){ err.textContent = 'PIN incorreto.'; return; }
-if(selectedRole === 'sindico' || selectedRole === 'subsindico'){
-btn.disabled = true;
-btn.textContent = 'Verificando sessão...';
-let liberado = { ok: true };
-try{
-liberado = await apiCall('verificarSessaoDupla', { role: selectedRole });
-}catch(e){
-console.error('falha ao verificar sessão dupla', e);
-}
-btn.disabled = false;
-btn.textContent = textoOriginal;
-if(!liberado.ok){
-const outroLabel = ROLE_LABELS[liberado.outroRole] || 'o outro perfil';
-err.textContent = `${outroLabel} está com uma sessão ativa agora. Tente novamente em até ${liberado.minutosRestantes || 20} min, ou peça para essa pessoa sair.`;
+err.textContent = 'Não consegui conectar ao servidor. Verifique a internet e tente de novo.';
 return;
 }
+btn.disabled = false;
+btn.textContent = textoOriginal;
+if(!r || !r.ok){
+if(r && r.motivo === 'bloqueado'){
+err.textContent = `Muitas tentativas erradas. Aguarde ${r.minutos || 10} minutos para tentar de novo.`;
+} else if(r && (r.motivo === 'ocupado' || r.motivo === 'tente_novamente')){
+const outroLabel = ROLE_LABELS[r.outroRole] || 'o outro perfil';
+err.textContent = `${outroLabel} está com uma sessão ativa agora. Tente novamente em até ${r.minutosRestantes || 20} min, ou peça para essa pessoa sair.`;
+} else {
+err.textContent = 'PIN incorreto.';
 }
+return;
+}
+SESSAO = r.sessao;
+aplicarDados(r.dados, true);
 STATE.currentUser = { role: selectedRole, label: ROLE_LABELS[selectedRole] };
 document.getElementById('login-screen').style.display = 'none';
 document.getElementById('app').style.display = 'flex';
@@ -2161,11 +2169,15 @@ const comp = STATE.config.competenciaAtual;
 const fixas = STATE.despesas.filter(d=> d.competencia===comp && d.tipo==='fixa');
 const vars = STATE.despesas.filter(d=> d.competencia===comp && d.tipo==='variavel');
 let pagoTotal = 0, count=0, isentosCount=0;
+if(isPublicMode() && STATE.resumoPublico){
+pagoTotal = STATE.resumoPublico.valorPago; count = STATE.resumoPublico.pagos; isentosCount = STATE.resumoPublico.isentos;
+} else {
 for(let i=1;i<=STATE.config.numApartamentos;i++){
 const p = STATE.pagamentos[comp+'_'+i];
 const u = STATE.unidades[i];
 if(u && u.isentoTaxa){ isentosCount++; }
 if(p && p.pago){ pagoTotal += p.valorPago; count++; }
+}
 }
 const unidadesCobradas = STATE.config.numApartamentos - isentosCount;
 const totalDespFixas = fixas.reduce((a,b)=>a+b.valor,0);
@@ -2268,7 +2280,9 @@ showToast('Alterações salvas.');
 function renderFornecedores(){
 const grid = document.getElementById('fornecedores-grid');
 const gridNegra = document.getElementById('fornecedores-lista-negra');
-document.getElementById('btn-novo-fornecedor').onclick = ()=> openFornecedorModal(null);
+const btnNovoForn = document.getElementById('btn-novo-fornecedor');
+btnNovoForn.style.display = isReadOnly() ? 'none' : '';
+btnNovoForn.onclick = ()=>{ if(isReadOnly()) return; openFornecedorModal(null); };
 window.openFornecedorModal = function(f){
 STATE.editingFornecedor = f ? f.id : null;
 document.querySelector('#modal-fornecedor .modal-header h3').textContent = f ? 'Editar fornecedor' : 'Novo fornecedor';
@@ -2698,13 +2712,15 @@ c.dadosBancarios.pix = document.getElementById('cfg-pix').value;
 c.dadosBancarios.banco = document.getElementById('cfg-banco').value;
 c.dadosBancarios.agencia = document.getElementById('cfg-agencia').value;
 c.dadosBancarios.conta = document.getElementById('cfg-conta').value;
+if(!c.pins) c.pins = {};
 roles.forEach(role=>{
 const pinVal = document.getElementById('cfg-pin-'+role).value.trim();
-c.pins[role].pin = pinVal || c.pins[role].pin;
 const novoEmail = document.getElementById('cfg-email-'+role).value.trim();
-c.pins[role].email = novoEmail || c.pins[role].email;
+c.pins[role] = { email: novoEmail || (c.pins[role] && c.pins[role].email) || '' };
+if(pinVal) c.pins[role].pinNovo = pinVal;
 });
 await storageSet('config', c, true, true);
+roles.forEach(role=>{ if(c.pins[role]) delete c.pins[role].pinNovo; });
 // Verificação: relê o que foi realmente persistido antes de confirmar sucesso ao usuário
 let confirmado = false;
 for(let tentativa=0; tentativa<3 && !confirmado; tentativa++){
